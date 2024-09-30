@@ -1,0 +1,44 @@
+{
+  "state": "nsw",
+  "crops": [
+    {
+      "type": "Wheat",
+      "state": "nsw",
+      "productionSystem": "Non-irrigated crop",
+      "averageGrainYield": 1.1,
+      "areaSown": 1.1,
+      "nonUreaNitrogen": 1.1,
+      "ureaApplication": 1.1,
+      "ureaAmmoniumNitrate": 1.1,
+      "phosphorusApplication": 1.1,
+      "potassiumApplication": 1.1,
+      "sulfurApplication": 1.1,
+      "rainfallAbove600": true,
+      "fractionOfAnnualCropBurnt": 1.1,
+      "herbicideUse": 1.1,
+      "glyphosateOtherHerbicideUse": 1.1,
+      "electricityAllocation": 1.1,
+      "limestone": 1.1,
+      "limestoneFraction": 1.1,
+      "dieselUse": 1.1,
+      "petrolUse": 1.1,
+      "lpg": 1.1
+    }
+  ],
+  "electricityRenewable": 1.1,
+  "electricityUse": 1.1,
+  "vegetation": [
+    {
+      "vegetation": {
+        "region": "South West",
+        "treeSpecies": "Mixed species (Environmental Plantings)",
+        "soil": "Loams & Clays",
+        "area": 1.1,
+        "age": 1.1
+      },
+      "allocationToCrops": [
+        1.1
+      ]
+    }
+  ]
+}
