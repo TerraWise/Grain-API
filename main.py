@@ -1,5 +1,6 @@
 # Import the required pacakage
 import pandas as pd
+import json
 import streamlit
 import requests
 
@@ -12,14 +13,16 @@ API_key = 'random bull craps go'
 
 # Set the header
 Headers = {
-    f'Authorisation: Bearer {API_key}' ,
-    'Content-type: application/json'
+    'Authorisation': f'Bearer {API_key}',
+    'Content-type': 'application/json',
+    'User-Agent': 'Chrome/120.0.0.0',
+    "Accept": "application/json"
 }
 
 # params for the API
 params = {
     'state': test['state'],
-    'crops': {
+    'crops': [
         {
             'type': test['type'],
             'state': test['state'],
@@ -43,10 +46,10 @@ params = {
             'petrolUse': test['pertolUse'],
             'lpg': test['lpg']
         }
-    },
+    ],
     'electricityRenewable': test['electricityRenewable'],
     'electricityUse': test['electricityUse'],
-    'vegetation': {
+    'vegetation': [
         {
             'vegetation': {
                 'region': test['region'],
@@ -57,9 +60,10 @@ params = {
             },
             'allocationToCrops': test['allocationToCrops']
         }
-    }
+    ]
 }
 
+# GET request for the API Grains only
 response = requests.get(url=API_url, 
                         headers=Headers,
                         params=params)
