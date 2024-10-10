@@ -1,11 +1,11 @@
 # Import the required pacakage
-import pandas as pd
 import json
 import streamlit
 import requests
+from funtion import *
 
-# Read in the csv
-test = pd.read_csv('dummy_grains.csv')
+# Create a df using function
+ToDataFrame('Inventory sheet v1 - Grain.xlsx')
 
 # url and key
 API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
