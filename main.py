@@ -9,18 +9,19 @@ ToDataFrame('Inventory sheet v1 - Grain.xlsx')
 
 # url and key
 API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
-API_key = 'random bull craps go'
+# Add in the key and perm file when AIA gets back to us
+cert = ('something.key', 'something.perm')
 
 # Set the header
 Headers = {
-    'Authorisation': f'Bearer {API_key}',
+    'Authorisation': 'Bearer <token>',
     'Content-type': 'application/json',
     'User-Agent': 'Chrome/120.0.0.0',
     "Accept": "application/json"
 }
 
 # params for the API
-params = {
+datas = {
     'state': test['state'],
     'crops': [
         {
@@ -64,6 +65,7 @@ params = {
 }
 
 # GET request for the API Grains only
-response = requests.get(url=API_url, 
+response = requests.post(url=API_url, 
                         headers=Headers,
-                        params=params)
+                        data=datas,
+                        cert=cert)
