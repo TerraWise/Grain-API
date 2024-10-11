@@ -2,10 +2,31 @@
 import json
 import streamlit
 import requests
-from funtion import *
+from function import GenInfo, ToDataFrame, ByCropType
+
+# General info
+loc, rain_over, prod_sys = GenInfo('Inventory sheet v1 - Grain.xlsx')
 
 # Create a df using function
-ToDataFrame('Inventory sheet v1 - Grain.xlsx')
+df = ToDataFrame('Inventory sheet v1 - Grain.xlsx')
+
+# Separate it by crop type
+Crop = ByCropType(df)
+
+# Selected crop
+# 0: Wheat
+# 1: Barley
+# 2: Canola
+# 3: Lupins
+# 4: Oats
+# 5: Hay
+# 6: Triticale
+# 7: Field Peas
+# 8: Chick Peas
+# 9: Faba Beans
+# 10: Lentils
+# 11: Other Grains
+selected_crop = 0
 
 # url and key
 API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
@@ -22,44 +43,44 @@ Headers = {
 
 # params for the API
 datas = {
-    'state': test['state'],
+    'state': loc,
     'crops': [
         {
-            'type': test['type'],
-            'state': test['state'],
-            'productionSystem': test['productionSystem'],
-            'averageGrainYield': test['averageGrainYield'],
-            'areaSown': test['areaSown'],
-            'nonUreaNitrogen': test['nonUreaNitrogen'],
-            'ureaApplication': test['ureaApplication'],
-            'ureaAmmoniumNitrate': test['ureaAmmoniumNitrate'],
-            'phosphorusApplication': test['phosphorusApplication'],
-            'potassiumApplication': test['potassiumApplication'],
-            'sulfurApplication': test['sulfurApplication'],
-            'rainfallAbove600': test['rainfallAbove600'],
-            'fractionOfAnnualCropBurnt': test['fractionOfAnnualCropBurnt'],
-            'herbicideUse': test['herbicideUse'],
-            'glyphosateOtherHerbicideUse': test['glyphosateOtherHerbicideUse'],
-            'electricityAllocation': test['electricityAllocation'],
-            'limestone': test['limestone'],
-            'limestoneFraction': test['limestoneFraction'],
-            'dieselUse': test['dieselUse'],
-            'petrolUse': test['pertolUse'],
-            'lpg': test['lpg']
+            'type': Crop[selected_crop]['Crop type'],
+            'state': loc,
+            'productionSystem': prod_sys,
+            'averageGrainYield': Crop[selected_crop]['Average grain yield (t/ha)'],
+            'areaSown': Crop[selected_crop]['Area sown (ha)'],
+            'nonUreaNitrogen': Crop[selected_crop]['Non-Yrea Nitrogen Applied (kg N/ha)'],
+            'ureaApplication': Crop[selected_crop]['Urea Applied (kg Urea/ha)'],
+            'ureaAmmoniumNitrate': Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)'],
+            'phosphorusApplication': Crop[selected_crop]['Phosphorus Applied (kg P/ha)'],
+            'potassiumApplication': Crop[selected_crop]['Potassium Applied (kg K/ha)'],
+            'sulfurApplication': Crop[selected_crop]['Sulfur Applied (kg S/ha)'],
+            'rainfallAbove600': rain_over,
+            'fractionOfAnnualCropBurnt': Crop[selected_crop]['Fraction of the annual production of crop that is burnt (ha/total crop ha)'],
+            'herbicideUse': Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)'],
+            'glyphosateOtherHerbicideUse': Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphosate) (kg a.i. per crop)'],
+            'electricityAllocation': Crop[selected_crop]['electricityAllocation'],
+            'limestone': Crop[selected_crop]['Mass of Lime Applied (total tonnes)'],
+            'limestoneFraction': Crop[selected_crop]['Fraction of Lime/Dolomite'],
+            'dieselUse': Crop[selected_crop]['Annual Diesel Consumption (litres/year)'],
+            'petrolUse': Crop[selected_crop]['Annual Petrol Use (litres/year)'],
+            'lpg': Crop[selected_crop]['lpg']
         }
     ],
-    'electricityRenewable': test['electricityRenewable'],
-    'electricityUse': test['electricityUse'],
+    'electricityRenewable': Crop[selected_crop]['% of electricity from renewable source'],
+    'electricityUse': Crop[selected_crop]['Annual Electricity Use (state Grid) (kWh/crop)'],
     'vegetation': [
         {
             'vegetation': {
-                'region': test['region'],
-                'treeSpecies': test['treeSpecies'],
-                'soil': test['soil'],
-                'area': test['area'],
-                'age': test['age']
+                'region': Crop[selected_crop]['region'],
+                'treeSpecies': Crop[selected_crop]['treeSpecies'],
+                'soil': Crop[selected_crop]['soil'],
+                'area': Crop[selected_crop]['area'],
+                'age': Crop[selected_crop]['age']
             },
-            'allocationToCrops': test['allocationToCrops']
+            'allocationToCrops': Crop[selected_crop]['allocationToCrops']
         }
     ]
 }
