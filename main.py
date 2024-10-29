@@ -3,7 +3,6 @@ import json
 import streamlit
 import requests
 import pandas as pd
-import csv
 from Extract_params import GenInfo, ToDataFrame, ByCropType
 from From_q import follow_up, SpecCrop
 
