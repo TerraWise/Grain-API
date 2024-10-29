@@ -1,19 +1,61 @@
 # Import the required pacakage
 import json
+import openpyxl.cell
 import streamlit
 import requests
+import openpyxl
+import openpyxl.utils.dataframe
+import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
 from From_q import follow_up, SpecCrop
+import requests
 
 # Read in the form as csv
 df = pd.read_csv('source_2.csv')
+
+# Number of crop in the questionnaire
+crops = df['What crops did you grow last year?'].iloc[0].split('\n')
 
 # Write out the general info
 follow_up(df)
 
 # Crop specific info
 SpecCrop(df)
+
+# Write into the inventory sheet
+wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
+# Fill in general info
+ws = wb['General information']
+
+## Business name or client name
+ws.cell(1,2).value = df['Property name and location'].iloc[0]
+ws.cell(2,2).value = df['Property name and location'].iloc[0]
+
+## Rainfall & request ETo from DPIRD
+if df['Property average annual rainfall (mm)'].iloc[0] > 0:
+    ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+else:
+    # Request both rainfall and Eto from DPIRD
+    pass
+
+CropType = Cell.Cell(ws, 9, 1)
+
+for i in range(12):
+    CC = CropType.offset(i + 1)
+    for crop in crops:
+        if crop == CC.value:
+            # Area sown
+            CC.offset(column=2).value = df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+            # Last year yield
+            CC.offset(column=3).value = df[f'What did your {crop.lower()} crop yield on average last year? (t/ha)'].iloc[0]
+            # Fraction of crop burnt
+            CC.offset(column=4).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0]
+
+# Electricity
+ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
+ws.cell(22, 6).value = df['Annual renewable electricity usage last year (kwh)'].iloc[0]
+
 
 # General info
 loc, rain_over, prod_sys = GenInfo('Inventory sheet v1 - Grain.xlsx')
