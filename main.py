@@ -4,60 +4,17 @@ import streamlit
 import requests
 import pandas as pd
 import csv
-from function import GenInfo, ToDataFrame, ByCropType
+from Extract_params import GenInfo, ToDataFrame, ByCropType
+from From_q import follow_up, SpecCrop
 
 # Read in the form as csv
 df = pd.read_csv('source_2.csv')
 
-
 # Write out the general info
+follow_up(df)
 
-info = {}
-info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
-info['Farm management software'] = df['Please list the applications you use below'].iloc[0].split('\n')
-info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
-info['Record of variable rate'] = df['Are you happy to provide us with access to these applications, records and/or service providers to conduct your carbon account? If so, provide details via toby@terrawise.au or call 0488173271 for clarification'].iloc[0]
-
-with open("follow_up.csv", 'w', newline='') as out:
-    csv_out = csv.DictWriter(out, info.keys())
-    csv_out.writeheader()
-    csv_out.writerow(info)
-
-# Number of crop in the questionnaire
-crops = df['What crops did you grow last year?'].iloc[0].split('\n')
-# Loops for crop specific info
-# based on the number of crops
-for crop in crops:
-    crop_info = {}
-    for label, content in df.items():
-        if crop.lower() in label:
-            # Contracted services
-            if 'land management' in label:
-                try:
-                    crop_info[f'Land management practices - {crop}'] = content.iloc[0].split('\n')
-                except AttributeError:
-                    crop_info[f'{crop}'] = content.iloc[0]
-            try:
-                out = pd.DataFrame(crop_info)
-            except ValueError:
-                out = pd.DataFrame(crop_info, index=[0])
-            out.to_csv(f'{crop}_follow_up.csv')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Crop specific info
+SpecCrop(df)
 
 # General info
 loc, rain_over, prod_sys = GenInfo('Inventory sheet v1 - Grain.xlsx')
