@@ -14,7 +14,7 @@ def follow_up(df: pd.DataFrame):
         csv_out.writeheader()
         csv_out.writerow(info)
 
-def SpecCrop(df):
+def SpecCrop(df: pd.DataFrame):
     # Number of crop in the questionnaire
     crops = df['What crops did you grow last year?'].iloc[0].split('\n')
     # Loops for crop specific info
@@ -35,8 +35,10 @@ def SpecCrop(df):
                         crop_info[f'{label}'] = content.iloc[0].split('\n')
                     except AttributeError:
                         crop_info[f'{label}'] = "Wasn't answered in the form"
-                try:
-                    out = pd.DataFrame(crop_info)
-                except ValueError:
-                    out = pd.DataFrame(crop_info, index=[0])
-                out.to_csv(f'{crop}_follow_up.csv')
+        try:
+            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
+                                     in crop_info.items()]))
+        except ValueError:
+            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
+                                     in crop_info.items()]), index=[0])
+        out.to_csv(f'{crop}_follow_up.csv')
