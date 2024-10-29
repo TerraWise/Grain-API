@@ -3,23 +3,30 @@ import json
 import streamlit
 import requests
 import pandas as pd
+import csv
 from function import GenInfo, ToDataFrame, ByCropType
 
 # Read in the form as csv
 df = pd.read_csv('source_2.csv')
 
-# Number of crop in the questionnaire
-crops = df['What crops did you grow last year?'].iloc[0].split('\n')
 
-# Loop to extract the follow up info
-# based on the number of crops
-extracted_info = []
+# Write out the general info
+
 info = {}
 info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
 info['Farm management software'] = df['Please list the applications you use below'].iloc[0].split('\n')
 info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
 info['Record of variable rate'] = df['Are you happy to provide us with access to these applications, records and/or service providers to conduct your carbon account? If so, provide details via toby@terrawise.au or call 0488173271 for clarification'].iloc[0]
 
+with open("follow_up.csv", 'w', newline='') as out:
+    csv_out = csv.DictWriter(out, info.keys())
+    csv_out.writeheader()
+    csv_out.writerow(info)
+
+# Number of crop in the questionnaire
+crops = df['What crops did you grow last year?'].iloc[0].split('\n')
+# Loops for crop specific info
+# based on the number of crops
 for crop in crops:
     crop_info = {}
     for label, content in df.items():
