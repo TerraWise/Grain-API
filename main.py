@@ -22,7 +22,7 @@ crops = df['What crops did you grow last year?'].iloc[0].split('\n')
 FollowUp(df)
 
 # Crop specific info
-SpecCrop(df)
+SpecCrop(df, crops)
 
 # Write into the inventory sheet
 wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
@@ -62,7 +62,7 @@ ws.cell(22, 6).value = df['Percentage of annual renewable electricity usage last
 # Fertiliser
 ws = wb['Fertiliser Applied - Input']
 
-fert_applied = ListFert(df)
+fert_applied = ListFert(df, crops)
 
 for i, crop in enumerate(crops):
     fert = fert_applied[i]
@@ -81,7 +81,25 @@ for i, crop in enumerate(crops):
         ws.cell(row + space, 4).value = crop 
         space += 1
 
+# Chemical
+ws = wb['Chemical Applied - Input']
 
+chem_applied = ListChem(df, crops)
+
+for i, crop in enumerate(crops):
+    chem = chem_applied[i]
+    row = 2
+    space = 0
+    if i > 0:
+        row += len(chem_applied[i-1].keys())
+    for key, value in chem.items():
+        # Product name
+        ws.cell(row + space, 1).value = key
+        # Crop
+        ws.cell(row + space, 15).value = crop
+        # Rate
+        ws.cell(row + space, 16).value = value[0]
+        space += 1
 
 wb.save('test.xlsx')
 
