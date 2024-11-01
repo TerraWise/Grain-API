@@ -71,8 +71,10 @@ def ListFert(df: pd.DataFrame):
         rates = []
         forms = []
         for label, content in df.items():
-            if crop.lower() in label and 'npk' in label.lower():
-                products.append(content.iloc[0]) 
+            if crop.lower() in label and 'npk' in label.lower() and not math.isnan(content.iloc[0]):
+                products.append(content.iloc[0])
+            elif crop.lower() in label and 'other' in label.lower() and 'fertiliser' in label.lower():
+                products.append(content.iloc[0])
             elif crop.lower() in label and 'rate' in label.lower() and 'fertiliser' in label.lower():
                 rates.append(content.iloc[0])
             elif crop.lower() in label.lower() and 'liquid' in label.lower():
