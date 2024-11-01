@@ -29,16 +29,18 @@ wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
 # Fill in general info
 ws = wb['General information']
 
-## Business name or client name
-# ws.cell(1,2).value = df['Property name and location'].iloc[0]
-# ws.cell(2,2).value = df['Property name and location'].iloc[0]
+## Business name & location & rf
+for i in range(1, 3):
+    ws.cell(1, i + 1).value = df[f'Property {i} name'].iloc[0]
+    ws.cell(2, i + 1).value = df[f'Property {i} location'].iloc[0]
+    ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)']
 
 ## Rainfall & request ETo from DPIRD
-if df['Property average annual rainfall (mm)'].iloc[0] > 0:
-    ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
-else:
-    # Request both rainfall and Eto from DPIRD
-    pass
+# if df['Property average annual rainfall (mm)'].iloc[0] > 0:
+#     ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+# else:
+#     # Request both rainfall and Eto from DPIRD
+#     pass
 
 CropType = Cell.Cell(ws, 9, 1)
 
@@ -54,9 +56,10 @@ for i in range(12):
             CC.offset(column=4).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0]
 
 ## Electricity
-# ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-# ws.cell(22, 6).value = df['Annual renewable electricity usage last year (kwh)'].iloc[0]
+ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
+ws.cell(22, 6).value = df['Percentage of annual renewable electricity usage last year '].iloc[0]
 
+# Fertiliser
 ws = wb['Fertiliser Applied - Input']
 
 fert_applied = ListFert(df)
@@ -77,6 +80,8 @@ for i, crop in enumerate(crops):
         # Crop
         ws.cell(row + space, 4).value = crop 
         space += 1
+
+
 
 wb.save('test.xlsx')
 
