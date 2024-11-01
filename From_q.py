@@ -1,7 +1,7 @@
 import csv
 import pandas as pd
 
-def follow_up(df: pd.DataFrame):
+def FollowUp(df: pd.DataFrame):
     # Extract from csv
     info = {}
     info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
@@ -15,10 +15,10 @@ def follow_up(df: pd.DataFrame):
         csv_out.writerow(info)
 
 def SpecCrop(df: pd.DataFrame):
-    # Number of crop in the questionnaire
-    crops = df['What crops did you grow last year?'].iloc[0].split('\n')
     # Loops for crop specific info
     # based on the number of crops
+    # Number of crop in the questionnaire
+    crops = df['What crops did you grow last year?'].iloc[0].split('\n')
     for crop in crops:
         crop_info = {}
         for label, content in df.items():
