@@ -8,11 +8,12 @@ import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import FollowUp, SpecCrop
+from From_q import *
 import requests
+import math
 
 # Read in the form as csv
-df = pd.read_csv('source_2.csv')
+df = pd.read_csv('source_3.csv')
 
 # Number of crop in the questionnaire
 crops = df['What crops did you grow last year?'].iloc[0].split('\n')
@@ -29,8 +30,8 @@ wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
 ws = wb['General information']
 
 ## Business name or client name
-ws.cell(1,2).value = df['Property name and location'].iloc[0]
-ws.cell(2,2).value = df['Property name and location'].iloc[0]
+# ws.cell(1,2).value = df['Property name and location'].iloc[0]
+# ws.cell(2,2).value = df['Property name and location'].iloc[0]
 
 ## Rainfall & request ETo from DPIRD
 if df['Property average annual rainfall (mm)'].iloc[0] > 0:
@@ -53,26 +54,29 @@ for i in range(12):
             CC.offset(column=4).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0]
 
 ## Electricity
-ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-ws.cell(22, 6).value = df['Annual renewable electricity usage last year (kwh)'].iloc[0]
+# ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
+# ws.cell(22, 6).value = df['Annual renewable electricity usage last year (kwh)'].iloc[0]
 
 ws = wb['Fertiliser Applied - Input']
 
-# Fertiliser applied
-# i = 0
-# while i <= len()
+fert_applied = ListFert(df)
 
-fert_applied = []
-
-for crop in crops:
-    fert = {}
-    for label, content in df.items():
-        if crop.lower() in label and 'npk' in label.lower():
-            product = content.iloc[0]
-        if crop.lower() in label and 'rate' in label.lower():
-            rate = content.iloc[0]
-        fert[f'{product}'] = rate
-    fert_applied.append(fert)
+for i, crop in enumerate(crops):
+    fert = fert_applied[i]
+    row = 2
+    space = 0
+    if i > 0:
+        row += len(fert_applied[i-1].keys())
+    for key, value in fert.items():
+        # Product name
+        ws.cell(row + space, 1).value = key
+        # Rate
+        ws.cell(row + space, 6).value = value[0]
+        # Forms
+        ws.cell(row + space, 2).value = value[1]
+        # Crop
+        ws.cell(row + space, 4).value = crop 
+        space += 1
 
 wb.save('test.xlsx')
 
