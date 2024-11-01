@@ -8,7 +8,7 @@ import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import follow_up, SpecCrop
+from From_q import FollowUp, SpecCrop
 import requests
 
 # Read in the form as csv
@@ -18,7 +18,7 @@ df = pd.read_csv('source_2.csv')
 crops = df['What crops did you grow last year?'].iloc[0].split('\n')
 
 # Write out the general info
-follow_up(df)
+FollowUp(df)
 
 # Crop specific info
 SpecCrop(df)
@@ -52,10 +52,29 @@ for i in range(12):
             # Fraction of crop burnt
             CC.offset(column=4).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0]
 
-# Electricity
+## Electricity
 ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
 ws.cell(22, 6).value = df['Annual renewable electricity usage last year (kwh)'].iloc[0]
 
+ws = wb['Fertiliser Applied - Input']
+
+# Fertiliser applied
+# i = 0
+# while i <= len()
+
+fert_applied = []
+
+for crop in crops:
+    fert = {}
+    for label, content in df.items():
+        if crop.lower() in label and 'npk' in label.lower():
+            product = content.iloc[0]
+        if crop.lower() in label and 'rate' in label.lower():
+            rate = content.iloc[0]
+        fert[f'{product}'] = rate
+    fert_applied.append(fert)
+
+wb.save('test.xlsx')
 
 # General info
 loc, rain_over, prod_sys = GenInfo('Inventory sheet v1 - Grain.xlsx')
