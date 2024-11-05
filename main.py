@@ -1,17 +1,8 @@
 # Import the required pacakage
-import json
-import openpyxl.cell
-import streamlit
-import requests
-import openpyxl
-import openpyxl.utils.dataframe
-import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import *
+from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop
 import requests
-import math
-import datetime as dt
 
 # Read in the form as csv
 df = pd.read_csv('source_3.csv')
