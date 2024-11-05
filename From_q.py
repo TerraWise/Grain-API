@@ -1,6 +1,7 @@
 import csv
 import pandas as pd
 import math
+from datetime import datetime as dt
 
 # Extract follow up question
 def FollowUp(df: pd.DataFrame):
@@ -88,9 +89,9 @@ def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
                     try:
                         if not math.isnan(float(content.iloc[0])):
                             if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
-                                products.append(content.iloc[0])
+                                names.append(content.iloc[0])
                     except ValueError:
-                        products.append(content.iloc[0])
+                        names.append(content.iloc[0])
                 if cond and 'rate' in label.lower():
                     rates.append(content.iloc[0])
                 if cond and 'liquid' in label.lower():
@@ -122,3 +123,26 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
             products_applied[crop][ame] = [ha, rate]
     
     return products_applied
+
+# Vegetation
+def ToVeg(df: pd.DataFrame) -> dict:
+    pre_year = dt.now().year
+
+    vegetation = {}
+
+    eva = df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
+
+    for label, content in df.items():
+        cond = 'veg' in label.lower()
+        if eva == 'Yes':
+            if cond and 'describes' in label.lower():
+                vegetation['species'] = content.iloc[0]
+            if cond and 'hectares' in label.lower():
+                vegetation['ha'] = content.iloc[0]
+            if cond and 'year' in label.lower():
+                planted_year = content.iloc[0]
+                vegetation['age'] = pre_year - planted_year
+            if cond and 'soil' in label.lower():
+                vegetation['soil type'] = content.iloc[0]
+
+    return vegetation
