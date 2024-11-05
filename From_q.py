@@ -61,57 +61,42 @@ def SpecCrop(df: pd.DataFrame, crops: list):
         out.to_csv(f'{crop}_follow_up.csv')
 
 # Fertilser info from questionnaire
-def ListFert(df: pd.DataFrame, crops: list) -> list:
-    fert_applied = []
+def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
+    products_applied = []
     for crop in crops:
-        fert = {}
-        products = []
+        products = {}
+        names = []
         rates = []
         forms = []
         for label, content in df.items():
-            if crop.lower() in label and 'npk' in label.lower():
-                try:
-                    if not math.isnan(float(content.iloc[0])):
-                        if crop.lower() in label and 'other' in label.lower() and 'fertiliser' in label.lower():
-                            products.append(content.iloc[0])
-                except ValueError:
-                    products.append(content.iloc[0])
-            elif crop.lower() in label and 'rate' in label.lower() and 'fertiliser' in label.lower():
-                rates.append(content.iloc[0])
-            elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'fertiliser' in label.lower():
-                forms.append(content.iloc[0])
+            if a == 1: # To choose fert
+                if crop.lower() in label and 'npk' in label.lower():
+                    try:
+                        if not math.isnan(float(content.iloc[0])):
+                            if crop.lower() in label and 'other' in label.lower() and 'fertiliser' in label.lower():
+                                names.append(content.iloc[0])
+                    except ValueError:
+                        names.append(content.iloc[0])
+                elif crop.lower() in label and 'rate' in label.lower() and 'fertiliser' in label.lower():
+                    rates.append(content.iloc[0])
+                elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'fertiliser' in label.lower():
+                    forms.append(content.iloc[0])
+            else: # for chemical
+                if crop.lower() in label and 'chemical' in label.lower() and 'select' in label.lower():
+                    try:
+                        if not math.isnan(float(content.iloc[0])):
+                            if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
+                                products.append(content.iloc[0])
+                    except ValueError:
+                        products.append(content.iloc[0])
+                elif crop.lower() in label and 'rate' in label.lower() and 'chemical' in label.lower():
+                    rates.append(content.iloc[0])
+                elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'chemical' in label.lower():
+                    forms.append(content.iloc[0])
         i = 0
-        while i < len(products):
+        while i < len(names):
             if not math.isnan(rates[i]):
-                fert[products[i]] = [rates[i], forms[i]]
+                products[names[i]] = [rates[i], forms[i]]
             i += 1
-        fert_applied.append(fert)
-    return fert_applied
-
-# Chemical info from questionnaire
-def ListChem(df: pd.DataFrame, crops: list) -> list:
-    chem_applied = []
-    for crop in crops:
-        chem = {}
-        products = []
-        rates = []
-        forms = []
-        for label, content in df.items():
-            if crop.lower() in label and 'chemical' in label.lower() and 'select' in label.lower():
-                try:
-                    if not math.isnan(float(content.iloc[0])):
-                        if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
-                            products.append(content.iloc[0])
-                except ValueError:
-                    products.append(content.iloc[0])
-            elif crop.lower() in label and 'rate' in label.lower() and 'chemical' in label.lower():
-                rates.append(content.iloc[0])
-            elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'chemical' in label.lower():
-                forms.append(content.iloc[0])
-        i = 0
-        while i < len(products):
-            if not math.isnan(rates[i]):
-                chem[products[i]] = [rates[i], forms[i]]
-            i += 1
-        chem_applied.append(chem)
-    return chem_applied
+        products_applied.append(products)
+    return products_applied

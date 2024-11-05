@@ -30,10 +30,13 @@ wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
 ws = wb['General information']
 
 ## Business name & location & rf
-for i in range(1, 3):
+ws.cell(1, 2).value = df['Property name '].iloc[0]
+ws.cell(2, 2).value = df['Property location'].iloc[0]
+ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+for i in range(2, 3):
     ws.cell(1, i + 1).value = df[f'Property {i} name'].iloc[0]
     ws.cell(2, i + 1).value = df[f'Property {i} location'].iloc[0]
-    ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)']
+    ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
 
 ## Rainfall & request ETo from DPIRD
 # if df['Property average annual rainfall (mm)'].iloc[0] > 0:
@@ -62,7 +65,7 @@ ws.cell(22, 6).value = df['Percentage of annual renewable electricity usage last
 # Fertiliser
 ws = wb['Fertiliser Applied - Input']
 
-fert_applied = ListFert(df, crops)
+fert_applied = ListFertChem(df, crops, 1)
 
 for i, crop in enumerate(crops):
     fert = fert_applied[i]
@@ -84,7 +87,7 @@ for i, crop in enumerate(crops):
 # Chemical
 ws = wb['Chemical Applied - Input']
 
-chem_applied = ListChem(df, crops)
+chem_applied = ListFertChem(df, crops, 2)
 
 for i, crop in enumerate(crops):
     chem = chem_applied[i]
