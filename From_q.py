@@ -70,28 +70,30 @@ def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
         forms = []
         for label, content in df.items():
             if a == 1: # To choose fert
-                if crop.lower() in label and 'npk' in label.lower():
+                cond = crop.lower() in label.lower() and 'fertiliser' in label.lower()
+                if cond and 'npk' in label.lower():
                     try:
                         if not math.isnan(float(content.iloc[0])):
-                            if crop.lower() in label and 'other' in label.lower() and 'fertiliser' in label.lower():
+                            if cond and 'other' in label.lower():
                                 names.append(content.iloc[0])
                     except ValueError:
                         names.append(content.iloc[0])
-                elif crop.lower() in label and 'rate' in label.lower() and 'fertiliser' in label.lower():
+                if cond and 'rate' in label.lower():
                     rates.append(content.iloc[0])
-                elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'fertiliser' in label.lower():
+                if cond and 'liquid' in label.lower():
                     forms.append(content.iloc[0])
             else: # for chemical
-                if crop.lower() in label and 'chemical' in label.lower() and 'select' in label.lower():
+                cond = crop.lower() in label.lower() and 'chemical' in label.lower()
+                if cond and 'select' in label.lower():
                     try:
                         if not math.isnan(float(content.iloc[0])):
                             if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
                                 products.append(content.iloc[0])
                     except ValueError:
                         products.append(content.iloc[0])
-                elif crop.lower() in label and 'rate' in label.lower() and 'chemical' in label.lower():
+                if cond and 'rate' in label.lower():
                     rates.append(content.iloc[0])
-                elif crop.lower() in label.lower() and 'liquid' in label.lower() and 'chemical' in label.lower():
+                if cond and 'liquid' in label.lower():
                     forms.append(content.iloc[0])
         i = 0
         while i < len(names):
@@ -99,4 +101,24 @@ def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
                 products[names[i]] = [rates[i], forms[i]]
             i += 1
         products_applied.append(products)
+    return products_applied
+
+# Soil amelioration
+def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
+    # List of soil amelioration
+    soil_amelioration = ['lime', 'dolomite']
+    # Empty dict to store result
+    products_applied = {}
+    # Iterate over different crop types
+    for crop in crops:
+        products_applied[crop] = {}
+        for ame in soil_amelioration: 
+            for label, content in df.items():
+                cond = crop.lower() in label.lower() and ame in label.lower()
+                if  cond and 'ha' in label.lower():
+                    ha = content.iloc[0]
+                if cond and 'rate' in label.lower():
+                    rate = content.iloc[0]
+            products_applied[crop][ame] = [ha, rate]
+    
     return products_applied
