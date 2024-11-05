@@ -104,6 +104,22 @@ for i, crop in enumerate(crops):
         ws.cell(row + space, 16).value = value[0]
         space += 1
 
+# Lime/gypsum
+ws = wb['Lime Product - Input']
+
+products_applied = ToSoilAme(df, crops)
+
+i = 0
+while i < len(products_applied[crop]) * len(crops):
+    for crop in crops:
+        for key, value in products_applied[crop].items():
+            ws.cell(2 + i, 1).value = key
+            ws.cell(2 + i, 3).value = crop
+            ws.cell(2 + i, 5).value = value[0]
+            ws.cell(2 + i, 4).value = value[1]
+            i += 1
+
+
 wb.save('test.xlsx')
 
 # General info
