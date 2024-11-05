@@ -34,7 +34,7 @@ ws.cell(1, 2).value = df['Property name '].iloc[0]
 ws.cell(2, 2).value = df['Property location'].iloc[0]
 ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
 for i in range(2, 3):
-    ws.cell(1, i + 1).value = df[f'Property {i} name'].iloc[0]
+    ws.cell(1, i + 1).value = df[f'Property {i} name '].iloc[0]
     ws.cell(2, i + 1).value = df[f'Property {i} location'].iloc[0]
     ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
 
@@ -118,6 +118,13 @@ while i < len(products_applied[crop]) * len(crops):
             ws.cell(2 + i, 5).value = value[0]
             ws.cell(2 + i, 4).value = value[1]
             i += 1
+
+#  Fuel usage
+ws = wb['Fuel Usage - Input']
+
+# Vegetation
+ws = wb['Vegetation - Input']
+
 
 
 wb.save('test.xlsx')
