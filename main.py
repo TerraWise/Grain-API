@@ -11,6 +11,7 @@ from Extract_params import GenInfo, ToDataFrame, ByCropType
 from From_q import *
 import requests
 import math
+import datetime as dt
 
 # Read in the form as csv
 df = pd.read_csv('source_3.csv')
@@ -52,15 +53,15 @@ for i in range(12):
     for crop in crops:
         if crop == CC.value:
             # Area sown
-            CC.offset(column=2).value = df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+            CC.offset(column=1).value = df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
             # Last year yield
-            CC.offset(column=3).value = df[f'What did your {crop.lower()} crop yield on average last year? (t/ha)'].iloc[0]
+            CC.offset(column=2).value = df[f'What did your {crop.lower()} crop yield on average last year? (t/ha)'].iloc[0]
             # Fraction of crop burnt
-            CC.offset(column=4).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0]
+            CC.offset(column=3).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0] / df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
 
 ## Electricity
 ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-ws.cell(22, 6).value = df['Percentage of annual renewable electricity usage last year '].iloc[0]
+ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
 
 # Fertiliser
 ws = wb['Fertiliser Applied - Input']
@@ -125,7 +126,12 @@ ws = wb['Fuel Usage - Input']
 # Vegetation
 ws = wb['Vegetation - Input']
 
+vegetation = ToVeg(df)
 
+ws.cell(2, 2).value = vegetation['species']
+ws.cell(2, 3).value = vegetation['soil type']
+ws.cell(2, 4).value = vegetation['ha']
+ws.cell(2, 5).value = vegetation['age']
 
 wb.save('test.xlsx')
 
