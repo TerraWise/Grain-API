@@ -2,9 +2,10 @@ import csv
 import pandas as pd
 import math
 from datetime import datetime as dt
+from os import path
 
 # Extract follow up question
-def FollowUp(df: pd.DataFrame):
+def FollowUp(df: pd.DataFrame, dir):
     # Extract from csv
     info = {}
     try:
@@ -28,7 +29,7 @@ def FollowUp(df: pd.DataFrame):
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
     # Write out the follow up question
-    with open("follow_up.csv", 'w', newline='') as out:
+    with open(path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
         csv_out.writeheader()
         csv_out.writerow(info)
