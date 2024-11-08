@@ -1,2 +1,5 @@
-_pycache_/
+__pycache__/
 *.csv
+*.xlsx
+aiaghg-terrawise.pem
+carbon-calculator-integration.key

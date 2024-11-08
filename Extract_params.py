@@ -30,8 +30,8 @@ def ToDataFrame(excel_wb: str):
     # To transpose the data
     for i in range(2, initial_col + 1):
         rows = globals()[f'row{i}']
-        for f in range(len(rows)):
-            ws.cell(i, f + 1).value = rows[f]
+        for f, row in enumerate(rows):
+            ws.cell(i, f + 1).value = row
     # Written into a csv
     with open('df.csv', 'w', newline="") as f:
         c = csv.writer(f)

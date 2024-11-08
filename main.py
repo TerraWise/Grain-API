@@ -1,8 +1,134 @@
 # Import the required pacakage
-import json
-import streamlit
+import openpyxl.cell
+import openpyxl
+import openpyxl.utils.dataframe
+import openpyxl.cell.cell as Cell
+import pandas as pd
+from Extract_params import GenInfo, ToDataFrame, ByCropType
+from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop
 import requests
-from function import GenInfo, ToDataFrame, ByCropType
+
+# Read in the form as csv
+df = pd.read_csv('source_3.csv')
+
+# Number of crop in the questionnaire
+crops = df['What crops did you grow last year?'].iloc[0].split('\n')
+
+# Write out the general info
+FollowUp(df)
+
+# Crop specific info
+SpecCrop(df, crops)
+
+# Write into the inventory sheet
+wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
+# Fill in general info
+ws = wb['General information']
+
+## Business name & location & rf
+ws.cell(1, 2).value = df['Property name '].iloc[0]
+ws.cell(2, 2).value = df['Property location'].iloc[0]
+ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+for i in range(2, 3):
+    ws.cell(1, i + 1).value = df[f'Property {i} name '].iloc[0]
+    ws.cell(2, i + 1).value = df[f'Property {i} location'].iloc[0]
+    ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
+
+## Rainfall & request ETo from DPIRD
+# if df['Property average annual rainfall (mm)'].iloc[0] > 0:
+#     ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+# else:
+#     # Request both rainfall and Eto from DPIRD
+#     pass
+
+CropType = Cell.Cell(ws, 9, 1)
+
+for i in range(12):
+    CC = CropType.offset(i + 1)
+    for crop in crops:
+        if crop == CC.value:
+            # Area sown
+            CC.offset(column=1).value = df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+            # Last year yield
+            CC.offset(column=2).value = df[f'What did your {crop.lower()} crop yield on average last year? (t/ha)'].iloc[0]
+            # Fraction of crop burnt
+            CC.offset(column=3).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0] / df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+
+## Electricity
+ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
+ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
+
+# Fertiliser
+ws = wb['Fertiliser Applied - Input']
+
+fert_applied = ListFertChem(df, crops, 1)
+
+for i, crop in enumerate(crops):
+    fert = fert_applied[i]
+    row = 2
+    space = 0
+    if i > 0:
+        row += len(fert_applied[i-1].keys())
+    for key, value in fert.items():
+        # Product name
+        ws.cell(row + space, 1).value = key
+        # Rate
+        ws.cell(row + space, 6).value = value[0]
+        # Forms
+        ws.cell(row + space, 2).value = value[1]
+        # Crop
+        ws.cell(row + space, 4).value = crop 
+        space += 1
+
+# Chemical
+ws = wb['Chemical Applied - Input']
+
+chem_applied = ListFertChem(df, crops, 2)
+
+for i, crop in enumerate(crops):
+    chem = chem_applied[i]
+    row = 2
+    space = 0
+    if i > 0:
+        row += len(chem_applied[i-1].keys())
+    for key, value in chem.items():
+        # Product name
+        ws.cell(row + space, 1).value = key
+        # Crop
+        ws.cell(row + space, 15).value = crop
+        # Rate
+        ws.cell(row + space, 16).value = value[0]
+        space += 1
+
+# Lime/gypsum
+ws = wb['Lime Product - Input']
+
+products_applied = ToSoilAme(df, crops)
+
+i = 0
+while i < len(products_applied[crop]) * len(crops):
+    for crop in crops:
+        for key, value in products_applied[crop].items():
+            ws.cell(2 + i, 1).value = key
+            ws.cell(2 + i, 3).value = crop
+            ws.cell(2 + i, 5).value = value[0]
+            ws.cell(2 + i, 4).value = value[1]
+            i += 1
+
+#  Fuel usage
+ws = wb['Fuel Usage - Input']
+
+# Vegetation
+ws = wb['Vegetation - Input']
+
+vegetation = ToVeg(df)
+
+ws.cell(2, 2).value = vegetation['species']
+ws.cell(2, 3).value = vegetation['soil type']
+ws.cell(2, 4).value = vegetation['ha']
+ws.cell(2, 5).value = vegetation['age']
+
+wb.save('test.xlsx')
 
 # General info
 loc, rain_over, prod_sys = GenInfo('Inventory sheet v1 - Grain.xlsx')
@@ -86,7 +212,7 @@ datas = {
 }
 
 # GET request for the API Grains only
-response = requests.post(url=API_url, 
-                        headers=Headers,
-                        data=datas,
-                        cert=cert)
+# response = requests.post(url=API_url, 
+#                         headers=Headers,
+#                         data=datas,
+#                         cert=cert)
