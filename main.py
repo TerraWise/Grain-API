@@ -174,6 +174,10 @@ if tool == 'Extraction':
 else:
     st.header("Send to AIA")
 
+    st.text(
+        "Before uploading the excel file, please open it so the data can be updated \naccordingly"
+    )
+
     ex_file = st.file_uploader("Upload your inventory sheet:",'xlsx')
 
     try:
@@ -184,8 +188,8 @@ else:
         Crop = ByCropType(df)
         # Display the dataframe for checking
         if st.toggle("Do you want to check your input data frame?"):
-            st.dataframe(Crop)
-            st.write("If there are no data, need to open the excel to update the data")
+            st.dataframe(Crop, hide_index=True)
+            st.write("If there are no data, please refer to the text above")
         # Choose the desired crop to send a request
         desired_crop = st.radio('Choose which crop to send your request:', df['Crop type'].loc[df['Area sown (ha)']>0])
     except TypeError:
