@@ -174,6 +174,7 @@ if tool == 'Extraction':
 else:
     st.header("Send to AIA")
 
+    st.subheader("Disclaimer")
     st.text(
         "Before uploading the excel file, please open it so the data can be updated \naccordingly"
     )
