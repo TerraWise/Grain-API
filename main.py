@@ -230,28 +230,28 @@ else:
                     'type': Crop[selected_crop]['Crop type'],
                     'state': 'wa_sw',
                     'productionSystem': prod_sys,
-                    'averageGrainYield': Crop[selected_crop]['Average grain yield (t/ha)'],
-                    'areaSown': Crop[selected_crop]['Area sown (ha)'],
-                    'nonUreaNitrogen': Crop[selected_crop]['Non-Urea Nitrogen Applied (kg N/ha)'],
-                    'ureaApplication': Crop[selected_crop]['Urea Applied (kg Urea/ha)'],
-                    'ureaAmmoniumNitrate': Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)'],
-                    'phosphorusApplication': Crop[selected_crop]['Phosphorus Applied (kg P/ha)'],
-                    'potassiumApplication': Crop[selected_crop]['Potassium Applied (kg K/ha)'],
-                    'sulfurApplication': Crop[selected_crop]['Sulfur Applied (kg S/ha)'],
+                    'averageGrainYield': float(Crop[selected_crop]['Average grain yield (t/ha)']),
+                    'areaSown': float(Crop[selected_crop]['Area sown (ha)']),
+                    'nonUreaNitrogen': float(Crop[selected_crop]['Non-Urea Nitrogen Applied (kg N/ha)']),
+                    'ureaApplication': float(Crop[selected_crop]['Urea Applied (kg Urea/ha)']),
+                    'ureaAmmoniumNitrate': float(Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
+                    'phosphorusApplication': float(Crop[selected_crop]['Phosphorus Applied (kg P/ha)']),
+                    'potassiumApplication': float(Crop[selected_crop]['Potassium Applied (kg K/ha)']),
+                    'sulfurApplication': float(Crop[selected_crop]['Sulfur Applied (kg S/ha)']),
                     'rainfallAbove600': rain_over,
-                    'fractionOfAnnualCropBurnt': Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)'],
-                    'herbicideUse': Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)'],
-                    'glyphosateOtherHerbicideUse': Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)'],
-                    'electricityAllocation': Crop[selected_crop]['electricityAllocation'],
-                    'limestone': Crop[selected_crop]['Mass of Lime Applied (total tonnes)'],
-                    'limestoneFraction': Crop[selected_crop]['Fraction of Lime/Dolomite'],
-                    'dieselUse': Crop[selected_crop]['Annual Diesel Consumption (litres/year)'],
-                    'petrolUse': Crop[selected_crop]['Annual Pertol Use (litres/year)'],
+                    'fractionOfAnnualCropBurnt': float(Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)']),
+                    'herbicideUse': float(Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)']),
+                    'glyphosateOtherHerbicideUse': float(Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
+                    'electricityAllocation': float(Crop[selected_crop]['electricityAllocation']),
+                    'limestone': float(Crop[selected_crop]['Mass of Lime Applied (total tonnes)']),
+                    'limestoneFraction': float(Crop[selected_crop]['Fraction of Lime/Dolomite']),
+                    'dieselUse': float(Crop[selected_crop]['Annual Diesel Consumption (litres/year)']),
+                    'petrolUse': float(Crop[selected_crop]['Annual Pertol Use (litres/year)']),
                     'lpg': 0
                 }
             ],
-            'electricityRenewable': Crop[selected_crop]['% of electricity from renewable source'],
-            'electricityUse': Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)'],
+            'electricityRenewable': float(Crop[selected_crop]['% of electricity from renewable source']),
+            'electricityUse': float(Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)']),
         }
 
         if np.isnan(Crop[selected_crop]['Area (ha)']):
@@ -273,10 +273,10 @@ else:
                         'region': Crop[selected_crop]['Region'],
                         'treeSpecies': Crop[selected_crop]['Tree Species'],
                         'soil': Crop[selected_crop]['Soil'],
-                        'area': Crop[selected_crop]['Area (ha)'],
-                        'age': Crop[selected_crop]['Age (yrs)']
+                        'area': float(Crop[selected_crop]['Area (ha)']),
+                        'age': float(Crop[selected_crop]['Age (yrs)'])
                     },
-                    'allocationToCrops': Crop[selected_crop]['Allocation to crop']
+                    'allocationToCrops': float(Crop[selected_crop]['Allocation to crop'])
                 }
             ]
 
