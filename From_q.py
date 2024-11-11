@@ -60,7 +60,7 @@ def SpecCrop(df: pd.DataFrame, crops: list, dir):
         except ValueError:
             out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
                                      in crop_info.items()]), index=[0])
-        out.to_csv(os.path.join(dir, f'{crop}_follow_up.csv'))
+        out.to_csv(path.join(dir, f'{crop}_follow_up.csv'))
 
 # Fertilser info from questionnaire
 def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
