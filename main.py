@@ -222,6 +222,9 @@ else:
             "Accept": "application/json"
         }
 
+        if prod_sys == None:
+            prod_sys = 'Non-irrigated crop'
+
         # params for the API
         datas = {
             'state': 'wa_sw',
@@ -279,8 +282,6 @@ else:
                     'allocationToCrops': float(Crop[selected_crop]['Allocation to crop'])
                 }
             ]
-
-        st.write(loc, rain_over, prod_sys)
 
         # POST request for the API Grains only
         # response = rq.post(url=API_url, headers=Headers, json=datas, cert=(key, perm))
