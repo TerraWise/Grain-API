@@ -10,6 +10,7 @@ import requests as rq
 import streamlit as st
 import shutil, os, tempfile
 from datetime import datetime as dt
+import numpy as np
 
 # Get current path
 cwd = os.getcwd()
@@ -51,7 +52,7 @@ if tool == 'Extraction':
         FollowUp(df, tmp_out)
 
         # Crop specific info
-        SpecCrop(df, crops)
+        SpecCrop(df, crops, tmp_out)
         # Write into the inventory sheet
         wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
         # Fill in general info
@@ -176,7 +177,7 @@ else:
 
     st.subheader("Disclaimer")
     st.text(
-        "Before uploading the excel file, please open it so the data can be updated \naccordingly"
+        "Before uploading the excel file, please open and save it so the data can be \nupdated accordingly"
     )
 
     ex_file = st.file_uploader("Upload your inventory sheet:",'xlsx')
@@ -249,7 +250,22 @@ else:
             ],
             'electricityRenewable': Crop[selected_crop]['% of electricity from renewable source'],
             'electricityUse': Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)'],
-            'vegetation': [
+        }
+
+        if np.isnan(Crop[selected_crop]['Area (ha)']):
+            datas['vegetation'] = [
+                {
+                    'vegetation': {
+                        'region': 'South West',
+                        'treeSpecies': 'No tree data available',
+                        'soil': 'No Soil / Tree data available',
+                        'area': 0,
+                        'age': 0
+                    }
+                }
+            ]
+        else:
+            datas['vegetation'] = [
                 {
                     'vegetation': {
                         'region': Crop[selected_crop]['Region'],
@@ -261,7 +277,8 @@ else:
                     'allocationToCrops': Crop[selected_crop]['Allocation to crop']
                 }
             ]
-        }
+
+        st.write(loc, rain_over, prod_sys)
 
         # POST request for the API Grains only
         # response = rq.post(url=API_url, headers=Headers, json=datas, cert=(key, perm))
