@@ -125,6 +125,11 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
     
     return products_applied
 
+def get_num_applied(crops: list, products_applied: dict):
+            if len(crops) == 0:
+                return 0
+            return len(products_applied[crops[0]]) + get_num_applied(crops[1:], products_applied)
+
 # Vegetation
 def ToVeg(df: pd.DataFrame) -> dict:
     pre_year = dt.now().year

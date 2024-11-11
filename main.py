@@ -5,7 +5,7 @@ import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop
+from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop, get_num_applied
 import requests as rq
 import streamlit as st
 import shutil, os, tempfile
@@ -138,8 +138,10 @@ if tool == 'Extraction':
 
         products_applied = ToSoilAme(df, crops)
 
+        num_prod_applied = get_num_applied(crops, products_applied)
+
         i = 0
-        while i < len(products_applied[crop]) * len(crops):
+        while i < num_prod_applied:
             for crop in crops:
                 for key, value in products_applied[crop].items():
                     ws.cell(2 + i, 1).value = key
