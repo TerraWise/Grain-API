@@ -53,13 +53,13 @@ def ByCropType(df: pd.DataFrame):
 # Get the general information
 def GenInfo(excel_wb: str):
     # Read in the excel wb
-    wb = openpyxl.load_workbook(excel_wb)
+    wb = openpyxl.load_workbook(excel_wb, data_only=True)
     # Activate the sheet
     ws = wb['General information']
     # Get the state loc info (assuming the cell does not change)
     loc = ws.cell(2, 2).value
     # Rainfall > 600mm
-    rf_over = ws.cell(7, 2).value
+    rf_over = ws.cell(3, 11).value
     # Production system
     prod_sys = ws.cell(8, 2).value
     return loc, rf_over, prod_sys
