@@ -46,8 +46,7 @@ if tool == 'Extraction':
 
     if st.button("Run"):
         # Temp output folder
-        tmp_out = tempfile.mkdtemp(prefix='output',dir=cwd)
-
+        tmp_out = tempfile.mkdtemp(dir=cwd)
         # Write out the general info
         FollowUp(df, tmp_out)
 
@@ -188,7 +187,6 @@ if tool == 'Extraction':
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
 
-        os.remove('Question_Extract.zip')
         shutil.rmtree(tmp_out)
 else:
     st.header("Send to AIA")
@@ -309,7 +307,80 @@ else:
 
         response_dict = response.json()
 
-        st.write(response_dict)
+        scopes = ['scope1', 'scope2', 'scope3']
+
+        metrics_list = []
+
+        for scope in scopes:
+            for metric in response_dict[scope]:
+                metrics_list.append(
+                    {
+                        'scope': scope,
+                        'metric': metric,
+                        'value': response_dict[scope][metric]
+                    }
+                )
+
+        metrics_list.append(
+            {
+                'scope': 'carbonSequestration',
+                'metric': 'total',
+                'value': response_dict['carbonSequestration']['total']  
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'carbonSequestration',
+                'metric': 'intermediate',
+                'value': response_dict['carbonSequestration']['intermediate'][0]
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'net',
+                'metric': 'crop',
+                'value': response_dict['net']['crops'][0]
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'net',
+                'metric': 'total',
+                'value': response_dict['net']['total']
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'intensities',
+                'metric': 'intensities',
+                'value': response_dict['intensities'][0]
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'intensitiesWithSequestration',
+                'metric': 'grainsExcludingSequestraion',
+                'value': response_dict['intensitiesWithSequestration'][0]['grainsExcludingSequestration']
+            }
+        )
+        metrics_list.append(
+            {
+                'scope': 'intensitiesWithSequestration',
+                'metric': 'grainsIncludingSequestration',
+                'value': response_dict['intensitiesWithSequestration'][0]['grainsIncludingSequestration']
+            }
+        )
+
+        out = pd.DataFrame(metrics_list)
+
+        out_dir = tempfile.mkdtemp(dir=cwd)
+
+        out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
+
+        with open(os.path.join(out_dir, 'output.csv'), "rb") as f:
+            st.download_button('Download the AIA result', f, file_name='output.csv')
+
+        shutil.rmtree(out_dir)
 
         
         
