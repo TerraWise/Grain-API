@@ -89,7 +89,10 @@ if tool == 'Extraction':
 
         ## Electricity
         ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-        ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
+        try:
+            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
+        except AttributeError:
+            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0])
 
         # Fertiliser
         ws = wb['Fertiliser Applied - Input']
@@ -97,19 +100,20 @@ if tool == 'Extraction':
         fert_applied = ListFertChem(df, crops, 1)
 
         for i, crop in enumerate(crops):
-            fert = fert_applied[i]
-            row = 2
+            ferts = fert_applied[i]
             space = 0
+            if i == 0:
+                row = 2
             if i > 0:
-                row += len(fert_applied[i-1].keys())
-            for key, value in fert.items():
+                row += len(fert_applied[i-1])
+            for fert in ferts:
                 # Product name
-                ws.cell(row + space, 1).value = key
-                # Rate
-                ws.cell(row + space, 6).value = value[0]
-                # Forms
-                ws.cell(row + space, 2).value = value[1]
-                # Crop
+                ws.cell(row + space, 1).value = ferts[fert]['name']
+                # # Rate
+                ws.cell(row + space, 6).value = ferts[fert]['rate']
+                # # Forms
+                ws.cell(row + space, 2).value = ferts[fert]['form']
+                # # Crop
                 ws.cell(row + space, 4).value = crop 
                 space += 1
 
@@ -119,18 +123,21 @@ if tool == 'Extraction':
         chem_applied = ListFertChem(df, crops, 2)
 
         for i, crop in enumerate(crops):
-            chem = chem_applied[i]
-            row = 2
+            chems = chem_applied[i]
             space = 0
+            if i == 0:
+                row = 2
             if i > 0:
-                row += len(chem_applied[i-1].keys())
-            for key, value in chem.items():
+                row += len(chem_applied[i-1])
+            for chem in chems:
                 # Product name
-                ws.cell(row + space, 1).value = key
-                # Crop
-                ws.cell(row + space, 15).value = crop
-                # Rate
-                ws.cell(row + space, 16).value = value[0]
+                ws.cell(row + space, 1).value = chems[chem]['name']
+                # # Rate
+                ws.cell(row + space, 17).value = chems[chem]['rate']
+                # # Forms
+                ws.cell(row + space, 2).value = chems[chem]['form']
+                # # Crop
+                ws.cell(row + space, 16).value = crop
                 space += 1
 
         # Lime/gypsum
@@ -138,16 +145,22 @@ if tool == 'Extraction':
 
         products_applied = ToSoilAme(df, crops)
 
+        st.write(products_applied)
+
         num_prod_applied = get_num_applied(crops, products_applied)
 
         i = 0
         while i < num_prod_applied:
             for crop in crops:
-                for key, value in products_applied[crop].items():
-                    ws.cell(2 + i, 1).value = key
+                for product in products_applied[crop]:
+                    # Product
+                    ws.cell(2 + i, 1).value = product
+                    # Crop
                     ws.cell(2 + i, 3).value = crop
-                    ws.cell(2 + i, 5).value = value[0]
-                    ws.cell(2 + i, 4).value = value[1]
+                    # Area
+                    ws.cell(2 + i, 5).value = products_applied[crop][product]['area']
+                    # Rate
+                    ws.cell(2 + i, 4).value = products_applied[crop][product]['rate']
                     i += 1
 
         #  Fuel usage
@@ -158,10 +171,13 @@ if tool == 'Extraction':
 
         vegetation = ToVeg(df)
 
-        ws.cell(2, 2).value = vegetation['species']
-        ws.cell(2, 3).value = vegetation['soil type']
-        ws.cell(2, 4).value = vegetation['ha']
-        ws.cell(2, 5).value = vegetation['age']
+        try:
+            ws.cell(2, 2).value = vegetation['species']
+            ws.cell(2, 3).value = vegetation['soil type']
+            ws.cell(2, 4).value = vegetation['ha']
+            ws.cell(2, 5).value = vegetation['age']
+        except KeyError:
+            pass
 
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
 
@@ -209,19 +225,6 @@ else:
             if desired_crop == Crop[i]['Crop type']:
                 selected_crop = i
 
-        # url and key
-        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
-        # Add in the key and perm file when AIA gets back to us
-        key = 'carbon-calculator-integration.key'
-        perm = 'aiaghg-terrawise.pem'
-
-        # Set the header
-        Headers = {
-            'Content-type': 'application/json',
-            'User-Agent': 'Chrome/120.0.0.0',
-            "Accept": "application/json"
-        }
-
         if prod_sys == None:
             prod_sys = 'Non-irrigated crop'
 
@@ -241,7 +244,7 @@ else:
                     'phosphorusApplication': float(Crop[selected_crop]['Phosphorus Applied (kg P/ha)']),
                     'potassiumApplication': float(Crop[selected_crop]['Potassium Applied (kg K/ha)']),
                     'sulfurApplication': float(Crop[selected_crop]['Sulfur Applied (kg S/ha)']),
-                    'rainfallAbove600': rain_over,
+                    'rainfallAbove600': bool(rain_over),
                     'fractionOfAnnualCropBurnt': float(Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)']),
                     'herbicideUse': float(Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)']),
                     'glyphosateOtherHerbicideUse': float(Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
@@ -261,12 +264,13 @@ else:
             datas['vegetation'] = [
                 {
                     'vegetation': {
-                        'region': 'South West',
+                        'region': 'South Coastal',
                         'treeSpecies': 'No tree data available',
                         'soil': 'No Soil / Tree data available',
                         'area': 0,
                         'age': 0
-                    }
+                    },
+                    'allocationToCrops': [0]
                 }
             ]
         else:
@@ -279,9 +283,33 @@ else:
                         'area': float(Crop[selected_crop]['Area (ha)']),
                         'age': float(Crop[selected_crop]['Age (yrs)'])
                     },
-                    'allocationToCrops': float(Crop[selected_crop]['Allocation to crop'])
+                    'allocationToCrops': [
+                        float(Crop[selected_crop]['Allocation to crop'])
+                        ]
                 }
             ]
 
+        # Set the header
+        Headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "terrawise"
+        }
+
+        # url and key
+        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
+        # Add in the key and perm file when AIA gets back to us
+        key = 'carbon-calculator-integration.key'
+        pem = 'aiaghg-terrawise.pem'
+
         # POST request for the API Grains only
-        # response = rq.post(url=API_url, headers=Headers, json=datas, cert=(key, perm))
+        response = rq.post(url=API_url, headers=Headers, json=datas, cert=(pem, key))
+
+        st.write(response.status_code)
+
+        response_dict = response.json()
+
+        st.write(response_dict)
+
+        
+        
