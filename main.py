@@ -5,11 +5,12 @@ import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
 from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop
+from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop, get_num_applied
 import requests as rq
 import streamlit as st
 import shutil, os, tempfile
 from datetime import datetime as dt
+import numpy as np
 
 # Get current path
 cwd = os.getcwd()
@@ -51,7 +52,7 @@ if tool == 'Extraction':
         FollowUp(df, tmp_out)
 
         # Crop specific info
-        SpecCrop(df, crops)
+        SpecCrop(df, crops, tmp_out)
         # Write into the inventory sheet
         wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
         # Fill in general info
@@ -88,7 +89,10 @@ if tool == 'Extraction':
 
         ## Electricity
         ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-        ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
+        try:
+            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
+        except AttributeError:
+            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0])
 
         # Fertiliser
         ws = wb['Fertiliser Applied - Input']
@@ -96,19 +100,20 @@ if tool == 'Extraction':
         fert_applied = ListFertChem(df, crops, 1)
 
         for i, crop in enumerate(crops):
-            fert = fert_applied[i]
-            row = 2
+            ferts = fert_applied[i]
             space = 0
+            if i == 0:
+                row = 2
             if i > 0:
-                row += len(fert_applied[i-1].keys())
-            for key, value in fert.items():
+                row += len(fert_applied[i-1])
+            for fert in ferts:
                 # Product name
-                ws.cell(row + space, 1).value = key
-                # Rate
-                ws.cell(row + space, 6).value = value[0]
-                # Forms
-                ws.cell(row + space, 2).value = value[1]
-                # Crop
+                ws.cell(row + space, 1).value = ferts[fert]['name']
+                # # Rate
+                ws.cell(row + space, 6).value = ferts[fert]['rate']
+                # # Forms
+                ws.cell(row + space, 2).value = ferts[fert]['form']
+                # # Crop
                 ws.cell(row + space, 4).value = crop 
                 space += 1
 
@@ -118,18 +123,21 @@ if tool == 'Extraction':
         chem_applied = ListFertChem(df, crops, 2)
 
         for i, crop in enumerate(crops):
-            chem = chem_applied[i]
-            row = 2
+            chems = chem_applied[i]
             space = 0
+            if i == 0:
+                row = 2
             if i > 0:
-                row += len(chem_applied[i-1].keys())
-            for key, value in chem.items():
+                row += len(chem_applied[i-1])
+            for chem in chems:
                 # Product name
-                ws.cell(row + space, 1).value = key
-                # Crop
-                ws.cell(row + space, 15).value = crop
-                # Rate
-                ws.cell(row + space, 16).value = value[0]
+                ws.cell(row + space, 1).value = chems[chem]['name']
+                # # Rate
+                ws.cell(row + space, 17).value = chems[chem]['rate']
+                # # Forms
+                ws.cell(row + space, 2).value = chems[chem]['form']
+                # # Crop
+                ws.cell(row + space, 16).value = crop
                 space += 1
 
         # Lime/gypsum
@@ -137,14 +145,22 @@ if tool == 'Extraction':
 
         products_applied = ToSoilAme(df, crops)
 
+        st.write(products_applied)
+
+        num_prod_applied = get_num_applied(crops, products_applied)
+
         i = 0
-        while i < len(products_applied[crop]) * len(crops):
+        while i < num_prod_applied:
             for crop in crops:
-                for key, value in products_applied[crop].items():
-                    ws.cell(2 + i, 1).value = key
+                for product in products_applied[crop]:
+                    # Product
+                    ws.cell(2 + i, 1).value = product
+                    # Crop
                     ws.cell(2 + i, 3).value = crop
-                    ws.cell(2 + i, 5).value = value[0]
-                    ws.cell(2 + i, 4).value = value[1]
+                    # Area
+                    ws.cell(2 + i, 5).value = products_applied[crop][product]['area']
+                    # Rate
+                    ws.cell(2 + i, 4).value = products_applied[crop][product]['rate']
                     i += 1
 
         #  Fuel usage
@@ -155,10 +171,13 @@ if tool == 'Extraction':
 
         vegetation = ToVeg(df)
 
-        ws.cell(2, 2).value = vegetation['species']
-        ws.cell(2, 3).value = vegetation['soil type']
-        ws.cell(2, 4).value = vegetation['ha']
-        ws.cell(2, 5).value = vegetation['age']
+        try:
+            ws.cell(2, 2).value = vegetation['species']
+            ws.cell(2, 3).value = vegetation['soil type']
+            ws.cell(2, 4).value = vegetation['ha']
+            ws.cell(2, 5).value = vegetation['age']
+        except KeyError:
+            pass
 
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
 
@@ -176,7 +195,7 @@ else:
 
     st.subheader("Disclaimer")
     st.text(
-        "Before uploading the excel file, please open it so the data can be updated \naccordingly"
+        "Before uploading the excel file, please open and save it so the data can be \nupdated accordingly"
     )
 
     ex_file = st.file_uploader("Upload your inventory sheet:",'xlsx')
@@ -206,18 +225,8 @@ else:
             if desired_crop == Crop[i]['Crop type']:
                 selected_crop = i
 
-        # url and key
-        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
-        # Add in the key and perm file when AIA gets back to us
-        key = 'carbon-calculator-integration.key'
-        perm = 'aiaghg-terrawise.pem'
-
-        # Set the header
-        Headers = {
-            'Content-type': 'application/json',
-            'User-Agent': 'Chrome/120.0.0.0',
-            "Accept": "application/json"
-        }
+        if prod_sys == None:
+            prod_sys = 'Non-irrigated crop'
 
         # params for the API
         datas = {
@@ -227,41 +236,80 @@ else:
                     'type': Crop[selected_crop]['Crop type'],
                     'state': 'wa_sw',
                     'productionSystem': prod_sys,
-                    'averageGrainYield': Crop[selected_crop]['Average grain yield (t/ha)'],
-                    'areaSown': Crop[selected_crop]['Area sown (ha)'],
-                    'nonUreaNitrogen': Crop[selected_crop]['Non-Urea Nitrogen Applied (kg N/ha)'],
-                    'ureaApplication': Crop[selected_crop]['Urea Applied (kg Urea/ha)'],
-                    'ureaAmmoniumNitrate': Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)'],
-                    'phosphorusApplication': Crop[selected_crop]['Phosphorus Applied (kg P/ha)'],
-                    'potassiumApplication': Crop[selected_crop]['Potassium Applied (kg K/ha)'],
-                    'sulfurApplication': Crop[selected_crop]['Sulfur Applied (kg S/ha)'],
-                    'rainfallAbove600': rain_over,
-                    'fractionOfAnnualCropBurnt': Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)'],
-                    'herbicideUse': Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)'],
-                    'glyphosateOtherHerbicideUse': Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)'],
-                    'electricityAllocation': Crop[selected_crop]['electricityAllocation'],
-                    'limestone': Crop[selected_crop]['Mass of Lime Applied (total tonnes)'],
-                    'limestoneFraction': Crop[selected_crop]['Fraction of Lime/Dolomite'],
-                    'dieselUse': Crop[selected_crop]['Annual Diesel Consumption (litres/year)'],
-                    'petrolUse': Crop[selected_crop]['Annual Pertol Use (litres/year)'],
+                    'averageGrainYield': float(Crop[selected_crop]['Average grain yield (t/ha)']),
+                    'areaSown': float(Crop[selected_crop]['Area sown (ha)']),
+                    'nonUreaNitrogen': float(Crop[selected_crop]['Non-Urea Nitrogen Applied (kg N/ha)']),
+                    'ureaApplication': float(Crop[selected_crop]['Urea Applied (kg Urea/ha)']),
+                    'ureaAmmoniumNitrate': float(Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
+                    'phosphorusApplication': float(Crop[selected_crop]['Phosphorus Applied (kg P/ha)']),
+                    'potassiumApplication': float(Crop[selected_crop]['Potassium Applied (kg K/ha)']),
+                    'sulfurApplication': float(Crop[selected_crop]['Sulfur Applied (kg S/ha)']),
+                    'rainfallAbove600': bool(rain_over),
+                    'fractionOfAnnualCropBurnt': float(Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)']),
+                    'herbicideUse': float(Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)']),
+                    'glyphosateOtherHerbicideUse': float(Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
+                    'electricityAllocation': float(Crop[selected_crop]['electricityAllocation']),
+                    'limestone': float(Crop[selected_crop]['Mass of Lime Applied (total tonnes)']),
+                    'limestoneFraction': float(Crop[selected_crop]['Fraction of Lime/Dolomite']),
+                    'dieselUse': float(Crop[selected_crop]['Annual Diesel Consumption (litres/year)']),
+                    'petrolUse': float(Crop[selected_crop]['Annual Pertol Use (litres/year)']),
                     'lpg': 0
                 }
             ],
-            'electricityRenewable': Crop[selected_crop]['% of electricity from renewable source'],
-            'electricityUse': Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)'],
-            'vegetation': [
+            'electricityRenewable': float(Crop[selected_crop]['% of electricity from renewable source']),
+            'electricityUse': float(Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)']),
+        }
+
+        if np.isnan(Crop[selected_crop]['Area (ha)']):
+            datas['vegetation'] = [
+                {
+                    'vegetation': {
+                        'region': 'South Coastal',
+                        'treeSpecies': 'No tree data available',
+                        'soil': 'No Soil / Tree data available',
+                        'area': 0,
+                        'age': 0
+                    },
+                    'allocationToCrops': [0]
+                }
+            ]
+        else:
+            datas['vegetation'] = [
                 {
                     'vegetation': {
                         'region': Crop[selected_crop]['Region'],
                         'treeSpecies': Crop[selected_crop]['Tree Species'],
                         'soil': Crop[selected_crop]['Soil'],
-                        'area': Crop[selected_crop]['Area (ha)'],
-                        'age': Crop[selected_crop]['Age (yrs)']
+                        'area': float(Crop[selected_crop]['Area (ha)']),
+                        'age': float(Crop[selected_crop]['Age (yrs)'])
                     },
-                    'allocationToCrops': Crop[selected_crop]['Allocation to crop']
+                    'allocationToCrops': [
+                        float(Crop[selected_crop]['Allocation to crop'])
+                        ]
                 }
             ]
+
+        # Set the header
+        Headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "terrawise"
         }
 
+        # url and key
+        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
+        # Add in the key and perm file when AIA gets back to us
+        key = 'carbon-calculator-integration.key'
+        pem = 'aiaghg-terrawise.pem'
+
         # POST request for the API Grains only
-        # response = rq.post(url=API_url, headers=Headers, json=datas, cert=(key, perm))
+        response = rq.post(url=API_url, headers=Headers, json=datas, cert=(pem, key))
+
+        st.write(response.status_code)
+
+        response_dict = response.json()
+
+        st.write(response_dict)
+
+        
+        
