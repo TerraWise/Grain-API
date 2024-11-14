@@ -144,8 +144,6 @@ if tool == 'Extraction':
 
         products_applied = ToSoilAme(df, crops)
 
-        st.write(products_applied)
-
         num_prod_applied = get_num_applied(crops, products_applied)
 
         i = 0
