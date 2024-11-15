@@ -383,4 +383,57 @@ else:
         shutil.rmtree(out_dir)
 
         
-        
+import geopandas as gpd
+
+shp = gpd.read_file('Farm_export.shp.zip')
+
+key = 'k910TzgJKvHpU812gh9ChXn2K8DbnTVn'
+
+centroid = shp.to_crs(3857).centroid.to_crs(4326)
+
+lon = centroid.get_coordinates().iloc[0, 0]
+
+lat = centroid.get_coordinates().iloc[0, 1]
+
+nearest_url = "https://api.agric.wa.gov.au/v2/weather/stations/nearby?"
+
+header = {
+    "accept": "application/json"
+}
+
+nearest_params = {
+    'latitude': lat,
+    'longitude': lon,
+    'select': 'stationName,stationCode,owner,distance',
+    "api_key": key
+}
+
+# Get the nerest five weather stations atm
+# Might bump up to ten
+nearest_station = rq.get(nearest_url, nearest_params, headers=header)
+
+df_nearest = pd.DataFrame(nearest_station.json()['collection'])
+
+yearly_url = "https://api.agric.wa.gov.au/v2/weather/stations/summaries/yearly?"
+
+yearly_params = {
+    'startYear': 2018,
+    'endYear': 2023,
+    'stationCode': 'QP001',
+    'select': 'evapotranspiration,rainfall',
+    'api_key': key
+}
+
+yearly_weather = rq.get(yearly_url, yearly_params, headers=header)
+
+five_weather = []
+
+for dict in yearly_weather.json()['collection'][0]['summaries']:
+    yearly_dict = {}
+    for key, value in dict.items():
+        if key == 'evapotranspiration':
+            yearly_dict['shortCrop'] = dict[key]['shortCrop']
+            yearly_dict['tallCrop'] = dict[key]['tallCrop']
+        else:
+            yearly_dict[key] = value
+    five_weather.append(yearly_dict)
