@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime as dt
 from os import path
+import geopandas as gpd
 
 # Extract follow up question
 def FollowUp(df: pd.DataFrame, dir):
@@ -164,3 +165,10 @@ def ToVeg(df: pd.DataFrame) -> dict:
                 vegetation['soil type'] = content.iloc[0]
 
     return vegetation
+
+# Get lon lat from uploaded shapefile
+def get_xy(shapefile):
+    centroid = gpd.read_file(shapefile).centroid
+    lon = centroid.get_coordinates().iloc[0, 0]
+    lat = centroid.get_coordinates().iloc[0, 1]
+    return lon, lat
