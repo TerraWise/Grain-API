@@ -93,7 +93,7 @@ api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
 params = {
     'format': 'near',
     'station': 10619,
-    'radius': 10000
+    'radius': 800
 }
 url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)
 
