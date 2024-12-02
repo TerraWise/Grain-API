@@ -12,7 +12,7 @@ import shutil, os, tempfile
 from datetime import datetime as dt
 import numpy as np
 import datetime as dt
-from weather_stations import get_nearby_stations, weather_stations, get_station_df
+from weather_stations import *
 
 # Get current path
 cwd = os.getcwd()
@@ -56,16 +56,22 @@ if tool == "Extraction":
 
             nearest_station = get_nearby_stations(lat, lon, weather_stations)
 
-            st.dataframe(nearest_station)
-            
-            station_code = st.radio("Pick your weather station:", nearest_station.iloc[:,0].to_list())
+            st.write(percentage_from_BOM(nearest_station.index.to_list(), nearest_station))
 
             endYear = int(st.text_input("Input the end year (YYYY):", "2023"))
+
+            weather_dfs = to_list_dfs(endYear, nearest_station)
+
+            stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,1].to_list())
+
+            
         except ValueError:
             st.write("Haven't upload a bunch of shapefiles yet")
 
         if st.button("Retrive your data from SILO Long Paddock"):
             daily_weather = get_station_df(station_code, endYear - 1, endYear)
+
+            daily_weather.loc[8, "metadata"] = f'Fraction of data comes from BOM is {nearest_station[nearest_station['Number']==station_code]['Frac from BOM'].iloc[0]}'
 
             daily_weather.to_csv(os.path.join(cwd, 'daily_weather.csv'))
 

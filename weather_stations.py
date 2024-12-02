@@ -2,6 +2,7 @@ import pandas as pd
 import urllib
 import io
 import geopy.distance
+from datetime import datetime as dt
 
 def calc_weights(distances: list[float]) -> list[float]:
     invs = []
@@ -86,6 +87,21 @@ def get_station_df(station_code: int, start_year: int, end_year: int) -> pd.Data
         df = pd.read_csv(f)
     return df
 
+def to_list_dfs(endYear: int, nearest_station: pd.DataFrame) -> list:
+    endYear = endYear
+    startYear = endYear - 1
+    stations_dfs = []
+    for i in nearest_station.index:
+        stations_dfs.append(get_station_df(nearest_station.loc[i, "Number"], startYear, endYear))
+
+    return stations_dfs
+
+def percentage_from_BOM(index: list, nearest_station: pd.DataFrame):
+    for i in index:
+        station_df = get_station_df(nearest_station.loc[i, "Number"], 2000, dt.now().year - 1)
+        frac_from_BOM = len(station_df[station_df['daily_rain_source'] == 0]) / len(station_df)
+        nearest_station.loc[i, "Frac from BOM"] = frac_from_BOM
+    return nearest_station
 
 #get API data    
 api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
