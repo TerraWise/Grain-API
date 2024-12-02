@@ -96,15 +96,24 @@ if tool == "Extraction":
             daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
             daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
 
-            daily_df.to_csv(os.path.join(cwd, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
+            tmp_weather = tempfile.mkdtemp(dir=cwd)
+
+            daily_df.to_csv(os.path.join(tmp_weather, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
 
             rain, eto_short, eto_tall = annual_summary(daily_df)
 
             pd.DataFrame(
                 {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
                 ).to_csv(
-                    os.path.join(cwd, f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
+                    os.path.join(tmp_weather, f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv')
+                    )
+            
+            shutil.make_archive("Weather_data", "zip", tmp_weather)
 
+            zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
+
+            with open("Question_Extract.zip", "rb") as f:
+                st.download_button('Download weather data?', f, file_name=zip_name+".zip")
 
     if st.button("Start the extraction process", key="Extraction"):
         # Temp output folder
@@ -252,6 +261,7 @@ if tool == "Extraction":
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
 
         shutil.rmtree(tmp_out)
+        shutil.rmtree(tmp_weather)
 else:
     st.header("Send to AIA")
 
