@@ -25,7 +25,7 @@ def FollowUp(df: pd.DataFrame, dir):
     except AttributeError:
         info['Farm management software'] = "Didn't select software"
     try:    
-        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property?'].iloc[0]
+        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
     except AttributeError:
         info['Variable rate'] = "Don't know. Need to ask again."    
     try:
