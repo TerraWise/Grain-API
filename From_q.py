@@ -33,7 +33,7 @@ def FollowUp(df: pd.DataFrame, dir):
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
     # Write out the follow up question
-    with open(os.os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
+    with open(os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
         csv_out.writeheader()
         csv_out.writerow(info)
