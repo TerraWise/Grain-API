@@ -3,6 +3,7 @@ import urllib
 import io
 import geopy.distance
 from datetime import datetime as dt
+import numpy as np
 
 def calc_weights(distances: list[float]) -> list[float]:
     invs = []
@@ -96,12 +97,32 @@ def to_list_dfs(endYear: int, nearest_station: pd.DataFrame) -> list:
 
     return stations_dfs
 
-def percentage_from_BOM(index: list, nearest_station: pd.DataFrame):
+def percentage_from_BOM(index: list, nearest_station: pd.DataFrame) -> pd.DataFrame:
+    copy_df = nearest_station.copy()
     for i in index:
         station_df = get_station_df(nearest_station.loc[i, "Number"], 2000, dt.now().year - 1)
         frac_from_BOM = len(station_df[station_df['daily_rain_source'] == 0]) / len(station_df)
-        nearest_station.loc[i, "Frac from BOM"] = frac_from_BOM
-    return nearest_station
+        copy_df.loc[i, "Frac from BOM"] = frac_from_BOM
+    return copy_df
+
+def weighted_ave_col(input_dfs, colname: str, nearest_station_df: pd.DataFrame, selected_stations: list)->pd.Series:
+    if isinstance(input_dfs, list):
+        weights = []
+        for station in selected_stations:
+            weights.append(nearest_station_df[nearest_station_df.iloc[:, 0]==station]['weight'].iloc[0])
+        out = 0
+        for i in range(len(weights)):
+            out += input_dfs[i][colname] * weights[i]
+    else:
+        out = input_dfs[colname]
+
+    return out
+
+def annual_summary(df: pd.DataFrame) -> tuple:
+    rain = df["Rain"].sum() / 2
+    eto_short = df["ETShortCrop"].sum() / 2
+    eto_tall = df["ETTallCrop"].sum() / 2
+    return rain, eto_short, eto_tall
 
 #get API data    
 api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'

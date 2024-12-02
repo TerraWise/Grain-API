@@ -62,18 +62,43 @@ if tool == "Extraction":
 
             weather_dfs = to_list_dfs(endYear, nearest_station)
 
-            stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,1].to_list())
+            selected_stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,0].to_list())
 
             
         except ValueError:
             st.write("Haven't upload a bunch of shapefiles yet")
 
         if st.button("Retrive your data from SILO Long Paddock"):
-            daily_weather = get_station_df(station_code, endYear - 1, endYear)
+            i, j = 0, 0
+            if len(selected_stations) > 1:
+                extracted_df = []
+            if len(selected_stations) == 0:
+                raise Exception("Haven't selected a weather station")
+            while i < len(selected_stations) and j < len(weather_dfs):
+                st.write(weather_dfs[j].iloc[0, 0] == selected_stations[i])
+                if weather_dfs[j].iloc[0, 0] == selected_stations[i]:
+                    try:
+                        extracted_df.append(weather_dfs[j])
+                    except NameError:
+                        extracted_df = weather_dfs[j]
+                    j = 0
+                    i += 1
+                else:
+                    j += 1
 
-            daily_weather.loc[8, "metadata"] = f'Fraction of data comes from BOM is {nearest_station[nearest_station['Number']==station_code]['Frac from BOM'].iloc[0]}'
+            daily_df = pd.DataFrame()
+            try: 
+                daily_df['Date'] = extracted_df[0]["YYYY-MM-DD"]
+            except KeyError:
+                daily_df['Date'] = extracted_df["YYYY-MM-DD"]
+            daily_df["Year"] = [int(i[0:4]) for i in daily_df['Date']]
+            daily_df["Rain"] = weighted_ave_col(extracted_df, "daily_rain", nearest_station, selected_stations)
+            daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
+            daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
 
-            daily_weather.to_csv(os.path.join(cwd, 'daily_weather.csv'))
+            daily_df.to_csv(os.path.join(cwd, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
+
+            
 
 
     if st.button("Start the extraction process", key="Extraction"):
