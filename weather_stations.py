@@ -119,9 +119,11 @@ def weighted_ave_col(input_dfs, colname: str, nearest_station_df: pd.DataFrame, 
     return out
 
 def annual_summary(df: pd.DataFrame) -> tuple:
-    rain = df["Rain"].sum() / 2
-    eto_short = df["ETShortCrop"].sum() / 2
-    eto_tall = df["ETTallCrop"].sum() / 2
+    startYear = df['year'].min()
+    endYear = df['year'].max()
+    rain = df["Rain"].sum() / (endYear - startYear + 1)
+    eto_short = df["ETShortCrop"].sum() / (endYear - startYear + 1)
+    eto_tall = df["ETTallCrop"].sum() / (endYear - startYear + 1)
     return rain, eto_short, eto_tall
 
 #get API data    
