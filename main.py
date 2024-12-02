@@ -4,21 +4,24 @@ import openpyxl
 import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
-from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop, get_num_applied
+from Extract_params import *
+from From_q import *
 import requests as rq
 import streamlit as st
 import shutil, os, tempfile
 from datetime import datetime as dt
 import numpy as np
+import datetime as dt
+from weather_stations import get_nearby_stations, weather_stations, get_station_df
 
 # Get current path
 cwd = os.getcwd()
 
-st.title("Carbon accounting")
+st.title("Carbon accounting tool")
 
-tool = st.radio("Select which tools you want to run:", ['Extraction', 'API'])
-if tool == 'Extraction':
+tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'API'])
+
+if tool == "Extraction":
     st.header("Questionnaire extraction")
 
     in_q = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
@@ -35,16 +38,40 @@ if tool == 'Extraction':
 
         st.write(crops)
 
-    if st.toggle("Do you want to check you questionnaire?"):
-        df_t = {}
-        for label, content in df.items():
-            df_t[label] = content.iloc[0]
-        st.dataframe(df_t)    
+    tab1, tab2 = st.tabs(['Check questionnaire', "Get weather from DPIRD's API"])
 
-    config = {}
-    config['filename'] = st.text_input("Name your file (client, location, etc.):")
+    with tab1:
+        try:
+            df_t = {}
+            for label, content in df.items():
+                df_t[label] = content.iloc[0]
+            st.dataframe(df_t)
+        except NameError:
+            st.write("Nothing to see here!")
 
-    if st.button("Run"):
+    with tab2:
+        shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
+        try:
+            lon, lat = GetXY(shapes)
+
+            nearest_station = get_nearby_stations(lat, lon, weather_stations)
+
+            st.dataframe(nearest_station)
+            
+            station_code = st.radio("Pick your weather station:", nearest_station.iloc[:,0].to_list())
+
+            endYear = int(st.text_input("Input the end year (YYYY):", "2023"))
+        except ValueError:
+            st.write("Haven't upload a bunch of shapefiles yet")
+
+        # if st.button("Retrive your data from SILO Long Paddock"):
+        #     # Timed out need to sus out what wrong with the email
+        #     daily_weather = get_station_df(station_code, endYear - 1, endYear)
+
+        #     daily_weather.to_csv(os.path.join(cwd, 'daily_weather.csv'))
+
+
+    if st.button("Start the extraction process", key="Extraction"):
         # Temp output folder
         tmp_out = tempfile.mkdtemp(dir=cwd)
         # Write out the general info
@@ -67,11 +94,11 @@ if tool == 'Extraction':
             ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
 
         ## Rainfall & request ETo from DPIRD
-        # if df['Property average annual rainfall (mm)'].iloc[0] > 0:
-        #     ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
-        # else:
-        #     # Request both rainfall and Eto from DPIRD
-        #     pass
+        # Rainfall
+        try:
+            ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+        except AttributeError:
+            ws.cell(1, 11).value = "Didn't provide rainfall data"
 
         CropType = Cell.Cell(ws, 9, 1)
 
@@ -178,11 +205,13 @@ if tool == 'Extraction':
         except KeyError:
             pass
 
+        filename = st.text_input("Name your file (client, location, etc.):")
+
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
 
         shutil.make_archive("Question_Extract", "zip", tmp_out)
 
-        zip_name = config['filename'] + str(dt.today().strftime('%d-%m-%Y'))
+        zip_name = filename + str(dt.today().strftime('%d-%m-%Y'))
 
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
@@ -192,7 +221,7 @@ else:
     st.header("Send to AIA")
 
     st.subheader("Disclaimer")
-    st.text(
+    st.write(
         "Before uploading the excel file, please open and save it so the data can be \nupdated accordingly"
     )
 
@@ -213,7 +242,7 @@ else:
     except TypeError:
         st.write("Don't have an excel file to read")
 
-    if st.button('Run'):
+    if st.button('Run', key="AIA_API"):
 
         # General info
         loc, rain_over, prod_sys = GenInfo(ex_file)
@@ -382,58 +411,3 @@ else:
 
         shutil.rmtree(out_dir)
 
-        
-import geopandas as gpd
-
-shp = gpd.read_file('Farm_export.shp.zip')
-
-key = 'k910TzgJKvHpU812gh9ChXn2K8DbnTVn'
-
-centroid = shp.to_crs(3857).centroid.to_crs(4326)
-
-lon = centroid.get_coordinates().iloc[0, 0]
-
-lat = centroid.get_coordinates().iloc[0, 1]
-
-nearest_url = "https://api.agric.wa.gov.au/v2/weather/stations/nearby?"
-
-header = {
-    "accept": "application/json"
-}
-
-nearest_params = {
-    'latitude': lat,
-    'longitude': lon,
-    'select': 'stationName,stationCode,owner,distance',
-    "api_key": key
-}
-
-# Get the nerest five weather stations atm
-# Might bump up to ten
-nearest_station = rq.get(nearest_url, nearest_params, headers=header)
-
-df_nearest = pd.DataFrame(nearest_station.json()['collection'])
-
-yearly_url = "https://api.agric.wa.gov.au/v2/weather/stations/summaries/yearly?"
-
-yearly_params = {
-    'startYear': 2018,
-    'endYear': 2023,
-    'stationCode': 'QP001',
-    'select': 'evapotranspiration,rainfall',
-    'api_key': key
-}
-
-yearly_weather = rq.get(yearly_url, yearly_params, headers=header)
-
-five_weather = []
-
-for dict in yearly_weather.json()['collection'][0]['summaries']:
-    yearly_dict = {}
-    for key, value in dict.items():
-        if key == 'evapotranspiration':
-            yearly_dict['shortCrop'] = dict[key]['shortCrop']
-            yearly_dict['tallCrop'] = dict[key]['tallCrop']
-        else:
-            yearly_dict[key] = value
-    five_weather.append(yearly_dict)
