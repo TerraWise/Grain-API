@@ -60,10 +60,10 @@ def get_nearby_stations(lat: float, long: float, station_df: pd.DataFrame)->pd.D
     select_station_df["weight"] = weights
     return select_station_df
 
-def get_station_df(station_code: int, start_year: int, end_year: int) -> pd.DataFrame:
+def get_station_df(station_code: int, start_Year: int, end_Year: int) -> pd.DataFrame:
 
-    start = str(start_year) + '0101'
-    finish = str(end_year) + '1231'
+    start = str(start_Year) + '0101'
+    finish = str(end_Year) + '1231'
 
     #get API data    
     api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
@@ -119,8 +119,8 @@ def weighted_ave_col(input_dfs, colname: str, nearest_station_df: pd.DataFrame, 
     return out
 
 def annual_summary(df: pd.DataFrame) -> tuple:
-    startYear = df['year'].min()
-    endYear = df['year'].max()
+    startYear = df['Year'].min()
+    endYear = df['Year'].max()
     rain = df["Rain"].sum() / (endYear - startYear + 1)
     eto_short = df["ETShortCrop"].sum() / (endYear - startYear + 1)
     eto_tall = df["ETTallCrop"].sum() / (endYear - startYear + 1)
