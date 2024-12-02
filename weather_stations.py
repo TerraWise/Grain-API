@@ -71,7 +71,7 @@ def get_station_df(station_code: int, start_year: int, end_year: int) -> pd.Data
         'start': start,
         'finish': finish,
         'station': station_code,
-        'username': 'terrawise@terra-wise.com.au',
+        'username': 'terrawise@terrawise.au',
         'comment': 'rft'
     }
     url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)

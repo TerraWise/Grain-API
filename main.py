@@ -64,11 +64,10 @@ if tool == "Extraction":
         except ValueError:
             st.write("Haven't upload a bunch of shapefiles yet")
 
-        # if st.button("Retrive your data from SILO Long Paddock"):
-        #     # Timed out need to sus out what wrong with the email
-        #     daily_weather = get_station_df(station_code, endYear - 1, endYear)
+        if st.button("Retrive your data from SILO Long Paddock"):
+            daily_weather = get_station_df(station_code, endYear - 1, endYear)
 
-        #     daily_weather.to_csv(os.path.join(cwd, 'daily_weather.csv'))
+            daily_weather.to_csv(os.path.join(cwd, 'daily_weather.csv'))
 
 
     if st.button("Start the extraction process", key="Extraction"):
