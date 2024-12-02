@@ -98,7 +98,12 @@ if tool == "Extraction":
 
             daily_df.to_csv(os.path.join(cwd, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
 
-            
+            rain, eto_short, eto_tall = annual_summary(daily_df)
+
+            pd.DataFrame(
+                {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
+                ).to_csv(
+                    os.path.join(cwd, f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
 
 
     if st.button("Start the extraction process", key="Extraction"):
