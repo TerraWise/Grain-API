@@ -45,35 +45,49 @@ if tool == "Extraction":
             df_t = {}
             for label, content in df.items():
                 df_t[label] = content.iloc[0]
+            # Transform the questionnaire into a df for first pass
             st.dataframe(df_t)
         except NameError:
             st.write("Nothing to see here!")
 
     with tab2:
+        # Upload shapefile for SILO's API (weather data)
         shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
-        try:
+
+        try: # Incase there are no files (don't want to scare people away)
+            # Get the coordinate from the shapefile
             lon, lat = GetXY(shapes)
 
-            nearest_station = get_nearby_stations(lat, lon, weather_stations)
+            # A df of nearest station
+            nearest_station = get_nearby_stations(lat, lon)
 
+            # To show four nearest weather station with the
+            # fraction of data from BOM
             st.write(percentage_from_BOM(nearest_station.index.to_list(), nearest_station))
 
             endYear = int(st.text_input("Input the end year (YYYY):", "2023"))
 
+            # Get a list of weather data from all four weather station
             weather_dfs = to_list_dfs(endYear, nearest_station)
 
+            # Choose the data from a weather station or
+            # a weighted average of multiple stations
             selected_stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,0].to_list())
-
-            
         except ValueError:
             st.write("Haven't upload a bunch of shapefiles yet")
 
         if st.button("Retrive your data from SILO Long Paddock"):
+            # Indexes to go through the list of selected
+            # station and list of all weather station's df
             i, j = 0, 0
+            # If multiples stations are selected create a
+            # list
             if len(selected_stations) > 1:
                 extracted_df = []
             if len(selected_stations) == 0:
                 raise Exception("Haven't selected a weather station")
+            
+            # Append the selected stations into the extracted list
             while i < len(selected_stations) and j < len(weather_dfs):
                 if weather_dfs[j].iloc[0, 0] == selected_stations[i]:
                     try:
@@ -85,6 +99,8 @@ if tool == "Extraction":
                 else:
                     j += 1
 
+            # Create an empty df for extracted data or
+            # weighted average if multiple stations
             daily_df = pd.DataFrame()
             try: 
                 daily_df['Date'] = extracted_df[0]["YYYY-MM-DD"]
@@ -94,6 +110,9 @@ if tool == "Extraction":
             daily_df["Rain"] = weighted_ave_col(extracted_df, "daily_rain", nearest_station, selected_stations)
             daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
             daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
+
+            # Create a folder for saving and linkage
+            # to the excel writing
             try:
                 os.mkdir(os.path.join(cwd, 'weather_output'))
             except FileExistsError:
@@ -103,28 +122,33 @@ if tool == "Extraction":
 
             rain, eto_short, eto_tall = annual_summary(daily_df)
 
+            # Save the annual weather data as csv without indexes
             pd.DataFrame(
                 {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
                 ).to_csv(
-                    os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv')
+                    os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'), index=False
                     )
             
+            # Put everything into a zip file
             shutil.make_archive("Weather_data", "zip", os.path.join(cwd, 'weather_output'))
 
             zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
-
+            # Download the zip file
             with open("Weather_data.zip", "rb") as f:
                 st.download_button('Download weather data?', f, file_name=zip_name+".zip")
 
     if st.button("Start the extraction process", key="Extraction"):
+        # A temporary output file
         tmp_out = tempfile.mkdtemp()
         # Write out the general info
         FollowUp(df, tmp_out)
 
         # Crop specific info
         SpecCrop(df, crops, tmp_out)
+
         # Write into the inventory sheet
         wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
+
         # Fill in general info
         ws = wb['General information']
 
@@ -138,21 +162,23 @@ if tool == "Extraction":
             ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
 
         ## Rainfall & request ETo from DPIRD
-        # Rainfall
         try:
             ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
         except AttributeError:
             ws.cell(1, 11).value = "Didn't provide rainfall data"
-
+        # Data from the weather_output/
         SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
-
+        # Rainfall
         ws.cell(1, 12).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+        # Evapotranspiration
         ws.cell(2, 12).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
         ws.cell(2, 13).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
 
+        # Set the reference cell for offset below
         CropType = Cell.Cell(ws, 9, 1)
-
-        for i in range(12):
+        # Write into cells under corresponding crop types
+        # using the refrence cell
+        for i in range(12): # Number of crop type
             CC = CropType.offset(i + 1)
             for crop in crops:
                 if crop == CC.value:
@@ -165,6 +191,7 @@ if tool == "Extraction":
 
         ## Electricity
         ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
+        # Percentage of renewable electricity
         try:
             ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
         except AttributeError:
@@ -172,15 +199,16 @@ if tool == "Extraction":
 
         # Fertiliser
         ws = wb['Fertiliser Applied - Input']
-
+        # List of fertiliser applied breaks down by
+        # crop type
         fert_applied = ListFertChem(df, crops, 1)
-
+        # Loop to write into the worksheet
         for i, crop in enumerate(crops):
             ferts = fert_applied[i]
-            space = 0
-            if i == 0:
+            space = 0 # Spacing between products of the same crop
+            if i == 0: # Set the starting row
                 row = 2
-            if i > 0:
+            if i > 0: # Starting row after first crop
                 row += len(fert_applied[i-1])
             for fert in ferts:
                 # Product name
@@ -195,9 +223,10 @@ if tool == "Extraction":
 
         # Chemical
         ws = wb['Chemical Applied - Input']
-
+        # List of chemical applied break downs
+        # by crop
         chem_applied = ListFertChem(df, crops, 2)
-
+        # Refer to fertiliser section
         for i, crop in enumerate(crops):
             chems = chem_applied[i]
             space = 0
@@ -218,12 +247,14 @@ if tool == "Extraction":
 
         # Lime/gypsum
         ws = wb['Lime Product - Input']
-
+        # List of products (lime/dolomite and gypsum) applied
+        # breaking down by crop type
         products_applied = ToSoilAme(df, crops)
-
+        # Total numbers of product applied
         num_prod_applied = get_num_applied(crops, products_applied)
 
-        i = 0
+        i = 0 # Spacing
+        # Loop to write into the worksheet
         while i < num_prod_applied:
             for crop in crops:
                 for product in products_applied[crop]:
@@ -243,25 +274,32 @@ if tool == "Extraction":
         # Vegetation
         ws = wb['Vegetation - Input']
 
+        # A dictionary of vegetation planted
         vegetation = ToVeg(df)
 
+        # Write into the worksheet
         try:
             ws.cell(2, 2).value = vegetation['species']
             ws.cell(2, 3).value = vegetation['soil type']
             ws.cell(2, 4).value = vegetation['ha']
             ws.cell(2, 5).value = vegetation['age']
-        except KeyError:
+        except KeyError: # If no vegetation planted, pass
             pass
-
+        
+        # Save the workbook
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
-
+        
+        # Create a zip to save follow ups question
+        # and workbook
         shutil.make_archive("Question_Extract", "zip", tmp_out)
 
+        # Name the file by the first property name
         zip_name = df.loc[0, 'Property name '] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
         
+        # Remove the unused folder
         shutil.rmtree(tmp_out)
         shutil.rmtree(os.path.join(cwd, 'weather_output'))
 else:
@@ -317,11 +355,13 @@ else:
             else:
                 j += 1
 
+        # Default the production system
+        # to 'Non-irrigated crop'
         if prod_sys == None:
             prod_sys = 'Non-irrigated crop'
 
         # params for the API
-        for i in range(len(selected_crop)):
+        for i in range(len(selected_crop)): # For one or multiple crops
             datas['crops'].append({
                 'type': Crop[selected_crop[i]]['Crop type'],
                 'state': 'wa_sw',
@@ -386,16 +426,23 @@ else:
         # POST request for the API Grains only
         response = rq.post(url=API_url, headers=Headers, json=datas, cert=(pem, key))
 
+        # Status code to see if it's a
+        # successful request
         st.write(response.status_code)
 
+        # Turn the responsed json into python dict
         response_dict = response.json()
 
+        # Empty list to store the scope, metric, 
+        # value of the response dict
         metrics_list = []
 
         for keys, values in response_dict.items():
-            if keys != 'intermediate' and keys != 'metaData':
+            if keys != 'intermediate' and keys != 'metaData': # Skip intermediate (crop specific) and metaDate
+                # Check if the value of the key is a dictionary
                 if isinstance(values, dict):
                     for key, value in values.items():
+                        # Check if the value is not a list
                         if not isinstance(value, list):
                             metrics_list.append(
                                 {
@@ -406,6 +453,8 @@ else:
                             )
                         else:
                             for i in range(len(value)):
+                                # List type value breaks the result into crop type
+                                # Append based on the crop type
                                 metrics_list.append(
                                     {
                                     'scope': keys,
@@ -414,8 +463,9 @@ else:
                                     }
                                 )
                 else:
+                    # For list type values
                     for i in range(len(values)):
-                        if keys == 'intensitiesWithSequestration':
+                        if keys == 'intensitiesWithSequestration': # this key has dictionary type value
                             for key, value in values[i].items():
                                 metrics_list.append(
                                     {
@@ -433,8 +483,10 @@ else:
                             }
                         )
 
+        # Create a df to export from the metrics list
         out = pd.DataFrame(metrics_list)
 
+        # Temp folder to save ouput
         out_dir = tempfile.mkdtemp(dir=cwd)
 
         out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
@@ -442,5 +494,6 @@ else:
         with open(os.path.join(out_dir, 'output.csv'), "rb") as f:
             st.download_button('Download the AIA result', f, file_name='output.csv')
 
+        # Remove the temp folder
         shutil.rmtree(out_dir)
 

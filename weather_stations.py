@@ -57,6 +57,7 @@ def percentage_from_BOM(index: list, nearest_station: pd.DataFrame) -> pd.DataFr
     copy_df = nearest_station.copy()
     for i in index:
         station_df = get_station_df(nearest_station.loc[i, "Number"], 2000, dt.now().year - 1)
+        # Source == 0 is from BOM (https://www.longpaddock.qld.gov.au/silo/about/about-data/)
         frac_from_BOM = len(station_df[station_df['daily_rain_source'] == 0]) / len(station_df)
         copy_df.loc[i, "Frac from BOM"] = frac_from_BOM
     return copy_df
