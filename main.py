@@ -285,7 +285,7 @@ else:
             st.dataframe(Crop, hide_index=True)
             st.write("If there are no data, please refer to the text above")
         # Choose the desired crop to send a request
-        desired_crop = st.radio('Choose which crop to send your request:', df['Crop type'].loc[df['Area sown (ha)']>0])
+        desired_crop = st.multiselect('Choose which crop to send your request:', df['Crop type'].loc[df['Area sown (ha)']>0].to_list())
     except TypeError:
         st.write("Don't have an excel file to read")
 
@@ -294,74 +294,83 @@ else:
         # General info
         loc, rain_over, prod_sys = GenInfo(ex_file)
 
+        # params json
+        datas = {
+            'state': 'wa_sw',
+            'crops': [],
+            'electricityRenewable': float(Crop[0]['% of electricity from renewable source']),
+            'electricityUse': float(Crop[0]['Annual Electricity Use (state Grid) (KWh)']),
+            'vegetation': []
+        }
+
         # To get the selected crop index
-        for i, crop in enumerate(Crop):
-            if desired_crop == Crop[i]['Crop type']:
-                selected_crop = i
+        i = 0
+        j = 0
+        selected_crop = []
+        while i < len(desired_crop) and j < len(Crop):
+            if desired_crop[i] == Crop[j]['Crop type']:
+                selected_crop.append(j)
+                if desired_crop[i] == 'Canola':
+                    Crop[j]['Crop type'] = 'Oilseeds'
+                j = 0
+                i += 1
+            else:
+                j += 1
 
         if prod_sys == None:
             prod_sys = 'Non-irrigated crop'
 
         # params for the API
-        datas = {
-            'state': 'wa_sw',
-            'crops': [
-                {
-                    'type': Crop[selected_crop]['Crop type'],
-                    'state': 'wa_sw',
-                    'productionSystem': prod_sys,
-                    'averageGrainYield': float(Crop[selected_crop]['Average grain yield (t/ha)']),
-                    'areaSown': float(Crop[selected_crop]['Area sown (ha)']),
-                    'nonUreaNitrogen': float(Crop[selected_crop]['Non-Urea Nitrogen Applied (kg N/ha)']),
-                    'ureaApplication': float(Crop[selected_crop]['Urea Applied (kg Urea/ha)']),
-                    'ureaAmmoniumNitrate': float(Crop[selected_crop]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
-                    'phosphorusApplication': float(Crop[selected_crop]['Phosphorus Applied (kg P/ha)']),
-                    'potassiumApplication': float(Crop[selected_crop]['Potassium Applied (kg K/ha)']),
-                    'sulfurApplication': float(Crop[selected_crop]['Sulfur Applied (kg S/ha)']),
-                    'rainfallAbove600': bool(rain_over),
-                    'fractionOfAnnualCropBurnt': float(Crop[selected_crop]['Fraction of the annual production of crop that is burnt (%)']),
-                    'herbicideUse': float(Crop[selected_crop]['General Herbicide/Pesticide use (kg a.i. per crop)']),
-                    'glyphosateOtherHerbicideUse': float(Crop[selected_crop]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
-                    'electricityAllocation': float(Crop[selected_crop]['electricityAllocation']),
-                    'limestone': float(Crop[selected_crop]['Mass of Lime Applied (total tonnes)']),
-                    'limestoneFraction': float(Crop[selected_crop]['Fraction of Lime/Dolomite']),
-                    'dieselUse': float(Crop[selected_crop]['Annual Diesel Consumption (litres/year)']),
-                    'petrolUse': float(Crop[selected_crop]['Annual Pertol Use (litres/year)']),
-                    'lpg': 0
-                }
-            ],
-            'electricityRenewable': float(Crop[selected_crop]['% of electricity from renewable source']),
-            'electricityUse': float(Crop[selected_crop]['Annual Electricity Use (state Grid) (KWh)']),
-        }
-
-        if np.isnan(Crop[selected_crop]['Area (ha)']):
-            datas['vegetation'] = [
-                {
-                    'vegetation': {
-                        'region': 'South Coastal',
-                        'treeSpecies': 'No tree data available',
-                        'soil': 'No Soil / Tree data available',
-                        'area': 0,
-                        'age': 0
-                    },
-                    'allocationToCrops': [0]
-                }
-            ]
-        else:
-            datas['vegetation'] = [
-                {
-                    'vegetation': {
-                        'region': Crop[selected_crop]['Region'],
-                        'treeSpecies': Crop[selected_crop]['Tree Species'],
-                        'soil': Crop[selected_crop]['Soil'],
-                        'area': float(Crop[selected_crop]['Area (ha)']),
-                        'age': float(Crop[selected_crop]['Age (yrs)'])
-                    },
-                    'allocationToCrops': [
-                        float(Crop[selected_crop]['Allocation to crop'])
-                        ]
-                }
-            ]
+        for i in range(len(selected_crop)):
+            datas['crops'].append({
+                'type': Crop[selected_crop[i]]['Crop type'],
+                'state': 'wa_sw',
+                'productionSystem': prod_sys,
+                'averageGrainYield': float(Crop[selected_crop[i]]['Average grain yield (t/ha)']),
+                'areaSown': float(Crop[selected_crop[i]]['Area sown (ha)']),
+                'nonUreaNitrogen': float(Crop[selected_crop[i]]['Non-Urea Nitrogen Applied (kg N/ha)']),
+                'ureaApplication': float(Crop[selected_crop[i]]['Urea Applied (kg Urea/ha)']),
+                'ureaAmmoniumNitrate': float(Crop[selected_crop[i]]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
+                'phosphorusApplication': float(Crop[selected_crop[i]]['Phosphorus Applied (kg P/ha)']),
+                'potassiumApplication': float(Crop[selected_crop[i]]['Potassium Applied (kg K/ha)']),
+                'sulfurApplication': float(Crop[selected_crop[i]]['Sulfur Applied (kg S/ha)']),
+                'rainfallAbove600': bool(rain_over),
+                'fractionOfAnnualCropBurnt': float(Crop[selected_crop[i]]['Fraction of the annual production of crop that is burnt (%)']),
+                'herbicideUse': float(Crop[selected_crop[i]]['General Herbicide/Pesticide use (kg a.i. per crop)']),
+                'glyphosateOtherHerbicideUse': float(Crop[selected_crop[i]]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
+                'electricityAllocation': float(Crop[selected_crop[i]]['electricityAllocation']),
+                'limestone': float(Crop[selected_crop[i]]['Mass of Lime Applied (total tonnes)']),
+                'limestoneFraction': float(Crop[selected_crop[i]]['Fraction of Lime/Dolomite']),
+                'dieselUse': float(Crop[selected_crop[i]]['Annual Diesel Consumption (litres/year)']),
+                'petrolUse': float(Crop[selected_crop[i]]['Annual Pertol Use (litres/year)']),
+                'lpg': 0
+            })
+            if np.isnan(Crop[selected_crop[i]]['Area (ha)']):
+                datas['vegetation'].append({
+                        'vegetation': {
+                            'region': 'South Coastal',
+                            'treeSpecies': 'No tree data available',
+                            'soil': 'No Soil / Tree data available',
+                            'area': 0,
+                            'age': 0
+                        },
+                        'allocationToCrops': [0]
+                    })
+            else:
+                datas['vegetation'][i].append({
+                        'vegetation': {
+                            'region': Crop[selected_crop]['Region'],
+                            'treeSpecies': Crop[selected_crop]['Tree Species'],
+                            'soil': Crop[selected_crop]['Soil'],
+                            'area': float(Crop[selected_crop]['Area (ha)']),
+                            'age': float(Crop[selected_crop]['Age (yrs)'])
+                        },
+                        'allocationToCrops': [
+                            float(Crop[selected_crop]['Allocation to crop'])
+                            ]
+                    })
+        
+        st.write(datas)
 
         # Set the header
         Headers = {
@@ -382,6 +391,8 @@ else:
         st.write(response.status_code)
 
         response_dict = response.json()
+
+        st.write(response_dict)
 
         scopes = ['scope1', 'scope2', 'scope3']
 
