@@ -327,6 +327,9 @@ else:
     except TypeError:
         st.write("Don't have an excel file to read")
 
+    # Name the file by the first property name
+    filename = st.text_input('Save the file as:', key='GAFF_file')
+
     if st.button('Run', key="AIA_API"):
 
         # General info
@@ -436,6 +439,7 @@ else:
         # Empty list to store the scope, metric, 
         # value of the response dict
         metrics_list = []
+        by_crop = []
 
         for keys, values in response_dict.items():
             if keys != 'intermediate' and keys != 'metaData': # Skip intermediate (crop specific) and metaDate
@@ -482,18 +486,53 @@ else:
                                 'value': values[i]
                             }
                         )
+                            
+        for dictionary in response_dict['intermediate']:
+            df = []
+            for scope, dict_within in dictionary.items():
+                if isinstance(dict_within, dict):
+                    for key, value in dict_within.items():
+                        df.append(
+                            {
+                                'scope': scope,
+                                'metric': key,
+                                'value': value
+                            }
+                        )
+                else:
+                    df.append(
+                        {
+                            'scope': scope,
+                            'metric': "",
+                            'value': dict_within
+                        }
+                    )
+            by_crop.append(df)
+
+        # Temp folder to save ouput
+        out_dir = tempfile.mkdtemp(dir=cwd)
+        
+        if len(by_crop) > 1:
+            for i in range(len(by_crop)):
+                pd.DataFrame(
+                    by_crop[i]
+                ).to_csv(
+                    os.path.join(out_dir, f'{desired_crop[i]}_GAFF.csv'), index=False
+                )
 
         # Create a df to export from the metrics list
         out = pd.DataFrame(metrics_list)
 
-        # Temp folder to save ouput
-        out_dir = tempfile.mkdtemp(dir=cwd)
-
         out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
 
-        with open(os.path.join(out_dir, 'output.csv'), "rb") as f:
-            st.download_button('Download the AIA result', f, file_name='output.csv')
+        # Create a zip to save follow ups question
+        # and workbook
+        shutil.make_archive("GAFF_Tool_output", "zip", out_dir)
+
+        zip_name = filename + '_' + str(dt.today().strftime('%d-%m-%Y'))
+
+        with open("GAFF_Tool_output.zip", "rb") as f:
+            st.download_button("Download the result from AIA's API", f, file_name=zip_name+".zip")
 
         # Remove the temp folder
         shutil.rmtree(out_dir)
-
