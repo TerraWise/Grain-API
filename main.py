@@ -75,7 +75,6 @@ if tool == "Extraction":
             if len(selected_stations) == 0:
                 raise Exception("Haven't selected a weather station")
             while i < len(selected_stations) and j < len(weather_dfs):
-                st.write(weather_dfs[j].iloc[0, 0] == selected_stations[i])
                 if weather_dfs[j].iloc[0, 0] == selected_stations[i]:
                     try:
                         extracted_df.append(weather_dfs[j])
@@ -95,29 +94,30 @@ if tool == "Extraction":
             daily_df["Rain"] = weighted_ave_col(extracted_df, "daily_rain", nearest_station, selected_stations)
             daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
             daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
+            try:
+                os.mkdir(os.path.join(cwd, 'weather_output'))
+            except FileExistsError:
+                pass
 
-            tmp_weather = tempfile.mkdtemp(dir=cwd)
-
-            daily_df.to_csv(os.path.join(tmp_weather, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
+            daily_df.to_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
 
             rain, eto_short, eto_tall = annual_summary(daily_df)
 
             pd.DataFrame(
                 {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
                 ).to_csv(
-                    os.path.join(tmp_weather, f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv')
+                    os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv')
                     )
             
-            shutil.make_archive("Weather_data", "zip", tmp_weather)
+            shutil.make_archive("Weather_data", "zip", os.path.join(cwd, 'weather_output'))
 
             zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
 
-            with open("Question_Extract.zip", "rb") as f:
+            with open("Weather_data.zip", "rb") as f:
                 st.download_button('Download weather data?', f, file_name=zip_name+".zip")
 
     if st.button("Start the extraction process", key="Extraction"):
-        # Temp output folder
-        tmp_out = tempfile.mkdtemp(dir=cwd)
+        tmp_out = tempfile.mkdtemp()
         # Write out the general info
         FollowUp(df, tmp_out)
 
@@ -143,6 +143,12 @@ if tool == "Extraction":
             ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
         except AttributeError:
             ws.cell(1, 11).value = "Didn't provide rainfall data"
+
+        SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
+
+        ws.cell(1, 12).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+        ws.cell(2, 12).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
+        ws.cell(2, 13).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
 
         CropType = Cell.Cell(ws, 9, 1)
 
@@ -215,8 +221,6 @@ if tool == "Extraction":
 
         products_applied = ToSoilAme(df, crops)
 
-        st.write(products_applied)
-
         num_prod_applied = get_num_applied(crops, products_applied)
 
         i = 0
@@ -249,19 +253,17 @@ if tool == "Extraction":
         except KeyError:
             pass
 
-        filename = st.text_input("Name your file (client, location, etc.):")
-
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
 
         shutil.make_archive("Question_Extract", "zip", tmp_out)
 
-        zip_name = filename + str(dt.today().strftime('%d-%m-%Y'))
+        zip_name = df.loc[0, 'Property name '] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
-
+        
         shutil.rmtree(tmp_out)
-        shutil.rmtree(tmp_weather)
+        shutil.rmtree(os.path.join(cwd, 'weather_output'))
 else:
     st.header("Send to AIA")
 
