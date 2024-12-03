@@ -369,8 +369,6 @@ else:
                             float(Crop[selected_crop]['Allocation to crop'])
                             ]
                     })
-        
-        st.write(datas)
 
         # Set the header
         Headers = {
@@ -392,71 +390,48 @@ else:
 
         response_dict = response.json()
 
-        st.write(response_dict)
-
-        scopes = ['scope1', 'scope2', 'scope3']
-
         metrics_list = []
 
-        for scope in scopes:
-            for metric in response_dict[scope]:
-                metrics_list.append(
-                    {
-                        'scope': scope,
-                        'metric': metric,
-                        'value': response_dict[scope][metric]
-                    }
-                )
-
-        metrics_list.append(
-            {
-                'scope': 'carbonSequestration',
-                'metric': 'total',
-                'value': response_dict['carbonSequestration']['total']  
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'carbonSequestration',
-                'metric': 'intermediate',
-                'value': response_dict['carbonSequestration']['intermediate'][0]
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'net',
-                'metric': 'crop',
-                'value': response_dict['net']['crops'][0]
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'net',
-                'metric': 'total',
-                'value': response_dict['net']['total']
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'intensities',
-                'metric': 'intensities',
-                'value': response_dict['intensities'][0]
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'intensitiesWithSequestration',
-                'metric': 'grainsExcludingSequestraion',
-                'value': response_dict['intensitiesWithSequestration'][0]['grainsExcludingSequestration']
-            }
-        )
-        metrics_list.append(
-            {
-                'scope': 'intensitiesWithSequestration',
-                'metric': 'grainsIncludingSequestration',
-                'value': response_dict['intensitiesWithSequestration'][0]['grainsIncludingSequestration']
-            }
-        )
+        for keys, values in response_dict.items():
+            if keys != 'intermediate' and keys != 'metaData':
+                if isinstance(values, dict):
+                    for key, value in values.items():
+                        if not isinstance(value, list):
+                            metrics_list.append(
+                                {
+                                    'scope': keys,
+                                    'metric': key,
+                                    'value': value
+                                }
+                            )
+                        else:
+                            for i in range(len(value)):
+                                metrics_list.append(
+                                    {
+                                    'scope': keys,
+                                    'metric': desired_crop[i],
+                                    'value': value[i]
+                                    }
+                                )
+                else:
+                    for i in range(len(values)):
+                        if keys == 'intensitiesWithSequestration':
+                            for key, value in values[i].items():
+                                metrics_list.append(
+                                    {
+                                        'scope': keys + '_' + desired_crop[i],
+                                        'metric': key,
+                                        'value': value
+                                    }
+                                )
+                        else:
+                            metrics_list.append(
+                            {
+                                'scope': keys,
+                                'metric': desired_crop[i],
+                                'value': values[i]
+                            }
+                        )
 
         out = pd.DataFrame(metrics_list)
 
