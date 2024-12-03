@@ -4,21 +4,24 @@ import openpyxl
 import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
-from Extract_params import GenInfo, ToDataFrame, ByCropType
-from From_q import FollowUp, ListFertChem, ToSoilAme, ToVeg, SpecCrop, get_num_applied
+from Extract_params import *
+from From_q import *
 import requests as rq
 import streamlit as st
 import shutil, os, tempfile
 from datetime import datetime as dt
 import numpy as np
+import datetime as dt
+from weather_stations import *
 
 # Get current path
 cwd = os.getcwd()
 
-st.title("Carbon accounting")
+st.title("Carbon accounting tool")
 
-tool = st.radio("Select which tools you want to run:", ['Extraction', 'API'])
-if tool == 'Extraction':
+tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'API'])
+
+if tool == "Extraction":
     st.header("Questionnaire extraction")
 
     in_q = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
@@ -35,18 +38,86 @@ if tool == 'Extraction':
 
         st.write(crops)
 
-    if st.toggle("Do you want to check you questionnaire?"):
-        df_t = {}
-        for label, content in df.items():
-            df_t[label] = content.iloc[0]
-        st.dataframe(df_t)    
+    tab1, tab2 = st.tabs(['Check questionnaire', "Get weather from DPIRD's API"])
 
-    config = {}
-    config['filename'] = st.text_input("Name your file (client, location, etc.):")
+    with tab1:
+        try:
+            df_t = {}
+            for label, content in df.items():
+                df_t[label] = content.iloc[0]
+            st.dataframe(df_t)
+        except NameError:
+            st.write("Nothing to see here!")
 
-    if st.button("Run"):
-        # Temp output folder
-        tmp_out = tempfile.mkdtemp(dir=cwd)
+    with tab2:
+        shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
+        try:
+            lon, lat = GetXY(shapes)
+
+            nearest_station = get_nearby_stations(lat, lon, weather_stations)
+
+            st.write(percentage_from_BOM(nearest_station.index.to_list(), nearest_station))
+
+            endYear = int(st.text_input("Input the end year (YYYY):", "2023"))
+
+            weather_dfs = to_list_dfs(endYear, nearest_station)
+
+            selected_stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,0].to_list())
+
+            
+        except ValueError:
+            st.write("Haven't upload a bunch of shapefiles yet")
+
+        if st.button("Retrive your data from SILO Long Paddock"):
+            i, j = 0, 0
+            if len(selected_stations) > 1:
+                extracted_df = []
+            if len(selected_stations) == 0:
+                raise Exception("Haven't selected a weather station")
+            while i < len(selected_stations) and j < len(weather_dfs):
+                if weather_dfs[j].iloc[0, 0] == selected_stations[i]:
+                    try:
+                        extracted_df.append(weather_dfs[j])
+                    except NameError:
+                        extracted_df = weather_dfs[j]
+                    j = 0
+                    i += 1
+                else:
+                    j += 1
+
+            daily_df = pd.DataFrame()
+            try: 
+                daily_df['Date'] = extracted_df[0]["YYYY-MM-DD"]
+            except KeyError:
+                daily_df['Date'] = extracted_df["YYYY-MM-DD"]
+            daily_df["Year"] = [int(i[0:4]) for i in daily_df['Date']]
+            daily_df["Rain"] = weighted_ave_col(extracted_df, "daily_rain", nearest_station, selected_stations)
+            daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
+            daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
+            try:
+                os.mkdir(os.path.join(cwd, 'weather_output'))
+            except FileExistsError:
+                pass
+
+            daily_df.to_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
+
+            rain, eto_short, eto_tall = annual_summary(daily_df)
+
+            pd.DataFrame(
+                {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
+                ).to_csv(
+                    os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv')
+                    )
+            
+            shutil.make_archive("Weather_data", "zip", os.path.join(cwd, 'weather_output'))
+
+            zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
+
+            with open("Weather_data.zip", "rb") as f:
+                st.download_button('Download weather data?', f, file_name=zip_name+".zip")
+
+    if st.button("Start the extraction process", key="Extraction"):
+        tmp_out = tempfile.mkdtemp()
         # Write out the general info
         FollowUp(df, tmp_out)
 
@@ -67,11 +138,17 @@ if tool == 'Extraction':
             ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
 
         ## Rainfall & request ETo from DPIRD
-        # if df['Property average annual rainfall (mm)'].iloc[0] > 0:
-        #     ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
-        # else:
-        #     # Request both rainfall and Eto from DPIRD
-        #     pass
+        # Rainfall
+        try:
+            ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+        except AttributeError:
+            ws.cell(1, 11).value = "Didn't provide rainfall data"
+
+        SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
+
+        ws.cell(1, 12).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+        ws.cell(2, 12).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
+        ws.cell(2, 13).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
 
         CropType = Cell.Cell(ws, 9, 1)
 
@@ -180,17 +257,18 @@ if tool == 'Extraction':
 
         shutil.make_archive("Question_Extract", "zip", tmp_out)
 
-        zip_name = config['filename'] + str(dt.today().strftime('%d-%m-%Y'))
+        zip_name = df.loc[0, 'Property name '] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
-
+        
         shutil.rmtree(tmp_out)
+        shutil.rmtree(os.path.join(cwd, 'weather_output'))
 else:
     st.header("Send to AIA")
 
     st.subheader("Disclaimer")
-    st.text(
+    st.write(
         "Before uploading the excel file, please open and save it so the data can be \nupdated accordingly"
     )
 
@@ -211,7 +289,7 @@ else:
     except TypeError:
         st.write("Don't have an excel file to read")
 
-    if st.button('Run'):
+    if st.button('Run', key="AIA_API"):
 
         # General info
         loc, rain_over, prod_sys = GenInfo(ex_file)
@@ -380,5 +458,3 @@ else:
 
         shutil.rmtree(out_dir)
 
-        
-        

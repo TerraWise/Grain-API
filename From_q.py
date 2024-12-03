@@ -2,7 +2,11 @@ import csv
 import pandas as pd
 import numpy as np
 from datetime import datetime as dt
-from os import path
+import os
+import geopandas as gpd
+import tempfile
+import shutil
+import glob
 
 # Extract follow up question
 def FollowUp(df: pd.DataFrame, dir):
@@ -21,7 +25,7 @@ def FollowUp(df: pd.DataFrame, dir):
     except AttributeError:
         info['Farm management software'] = "Didn't select software"
     try:    
-        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property?'].iloc[0]
+        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
     except AttributeError:
         info['Variable rate'] = "Don't know. Need to ask again."    
     try:
@@ -29,7 +33,7 @@ def FollowUp(df: pd.DataFrame, dir):
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
     # Write out the follow up question
-    with open(path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
+    with open(os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
         csv_out.writeheader()
         csv_out.writerow(info)
@@ -60,7 +64,7 @@ def SpecCrop(df: pd.DataFrame, crops: list, dir):
         except ValueError:
             out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
                                      in crop_info.items()]), index=[0])
-        out.to_csv(path.join(dir, f'{crop}_follow_up.csv'))
+        out.to_csv(os.path.join(dir, f'{crop}_follow_up.csv'))
 
 # Fertilser info from questionnaire
 def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
@@ -164,3 +168,22 @@ def ToVeg(df: pd.DataFrame) -> dict:
                 vegetation['soil type'] = content.iloc[0]
 
     return vegetation
+
+# Get the lat, lon of the shapefile
+def GetXY(shapes):
+    with tempfile.TemporaryDirectory() as td:
+        for shape in shapes:
+            path = os.path.join(td, shape.name)
+            with open(path, 'wb') as f:
+                f.write(shape.getbuffer().tobytes())
+        shape_paths = glob.glob(os.path.join(td, "*.shp"))
+        gdfs = []
+        for path in shape_paths:
+            gdf = gpd.read_file(path)
+            gdfs.append(gdf)
+        gdf = gpd.GeoDataFrame(pd.concat(gdfs))
+        centroid = gdf.dissolve().centroid
+        lon = centroid.x[0]
+        lat = centroid.y[0]
+        shutil.rmtree(td)
+    return lon, lat
