@@ -5,6 +5,7 @@ import geopy.distance
 from datetime import datetime as dt
 import numpy as np
 
+# Calculate the weight of each station based on distance
 def calc_weights(distances: list[float]) -> list[float]:
     invs = []
     for el in distances:
@@ -16,14 +17,15 @@ def calc_weights(distances: list[float]) -> list[float]:
         invs_out.append(el/inv_sum)
     return invs_out
 
+# Get a station weather data from SILO's API
 def get_station_df(station_code: int, start_Year: int, end_Year: int) -> pd.DataFrame:
-
+    # Specify the full start and end year
     start = str(start_Year) + '0101'
     finish = str(end_Year) + '1231'
 
     #get API data    
     api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
-
+    # Set the params for the GET request
     params = {
         'format': 'csv',
         'start': start,
@@ -32,6 +34,7 @@ def get_station_df(station_code: int, start_Year: int, end_Year: int) -> pd.Data
         'username': 'terrawise@terrawise.au',
         'comment': 'rft'
     }
+    # url for the GET request
     url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)
 
     with urllib.request.urlopen(url) as remote:
@@ -44,6 +47,7 @@ def get_station_df(station_code: int, start_Year: int, end_Year: int) -> pd.Data
         df = pd.read_csv(f)
     return df
 
+# Get the weather data from four nearby stations (NE, NW, SE, SW)
 def to_list_dfs(endYear: int, nearest_station: pd.DataFrame) -> list:
     endYear = endYear
     startYear = endYear - 1
@@ -53,7 +57,9 @@ def to_list_dfs(endYear: int, nearest_station: pd.DataFrame) -> list:
 
     return stations_dfs
 
+# Fraction of data point from official BOM website
 def percentage_from_BOM(index: list, nearest_station: pd.DataFrame) -> pd.DataFrame:
+    # Create a copy of the df
     copy_df = nearest_station.copy()
     for i in index:
         station_df = get_station_df(nearest_station.loc[i, "Number"], 2000, dt.now().year - 1)

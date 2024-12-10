@@ -12,6 +12,7 @@ import glob
 def FollowUp(df: pd.DataFrame, dir):
     # Extract from csv
     info = {}
+    # A fall back Attribute error
     try:
         info['Enterprises'] = df['Please select the following that best apply to your operation'].iloc[0].split('\n')
     except AttributeError:
@@ -141,6 +142,7 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
     
     return products_applied
 
+# Get the total number of products applied
 def get_num_applied(crops: list, products_applied: dict):
     if len(crops) == 0:
         return 0
@@ -151,7 +153,7 @@ def ToVeg(df: pd.DataFrame) -> dict:
     pre_year = dt.now().year
 
     vegetation = {}
-
+    # Set the evaluate to 'Yes' or 'No' based on the questionnaire
     eva = df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
 
     for label, content in df.items():
@@ -172,15 +174,18 @@ def ToVeg(df: pd.DataFrame) -> dict:
 # Get the lat, lon of the shapefile
 def GetXY(shapes):
     with tempfile.TemporaryDirectory() as td:
+        # Iterate over the uploaded file to get the filename
         for shape in shapes:
             path = os.path.join(td, shape.name)
             with open(path, 'wb') as f:
                 f.write(shape.getbuffer().tobytes())
         shape_paths = glob.glob(os.path.join(td, "*.shp"))
         gdfs = []
+        # Read and store the require file in the cluster of shapefile
         for path in shape_paths:
             gdf = gpd.read_file(path)
             gdfs.append(gdf)
+        # Group all the separate geo df into one complete geo df
         gdf = gpd.GeoDataFrame(pd.concat(gdfs))
         centroid = gdf.dissolve().centroid
         lon = centroid.x[0]
