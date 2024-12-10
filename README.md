@@ -1,4 +1,5 @@
 # An app builds for data extraction and sending request to AIA's API
+## Create your environment
 The environment to get this tool running is saved under weather_stations.py.
 
 To install with the environment use the code below in your terminal:
