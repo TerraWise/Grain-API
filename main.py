@@ -200,19 +200,68 @@ if tool == "Extraction":
         # Location
         # Property name
         ws.cell(7, 2).value = questionnaire_df['Property Name'].iloc[0]
+        # Property address
+        ws.cell(8, 2).value = questionnaire_df['Property Addresss'].iloc[0]
+        # State
+        ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
+        # Farm map or paddock boundaries
+        ws.cell(10, 2).value = questionnaire_df['Farm map or paddock boundaries']
 
+        # Climate
         ## Rainfall & request ETo from DPIRD
         try:
-            ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
+            ws.cell(12, 2).value = questionnaire_df['Property average annual rainfall'].iloc[0]
         except AttributeError:
-            ws.cell(1, 11).value = "Didn't provide rainfall data"
+            ws.cell(12, 2).value = "Didn't provide rainfall data"
         # Data from the weather_output/
         SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
         # Rainfall
-        ws.cell(1, 12).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+        ws.cell(13, 2).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
         # Evapotranspiration
-        ws.cell(2, 12).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
-        ws.cell(2, 13).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
+        ws.cell(16, 2).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
+        ws.cell(17, 2).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
+
+        # Software
+        # Farm management software (Y/N)
+        ws.cell(19, 2).value = questionnaire_df[
+            'Do you use any Farm Management Practices software applications?'
+        ].iloc[0]
+        # List
+        if np.isnan(questionnaire_df['Please select the applications you use below']):
+            ws.cell(20, 2).value = questionnaire_df['Please specify'].iloc[0]
+        else:
+            ws.cell(20, 2).value = questionnaire_df[
+                'Please select the applications you use below'
+            ].iloc[0].split(',')
+        # Practices
+        # VRT
+        ws.cell(22, 2).value = questionnaire_df[
+            'Do you use variable rate technology (VRT) across your property ?'
+        ].iloc[0]
+
+        # Vegetation
+        # Planting post_1990 (Y/N)
+        ws.cell(25, 2).value = questionnaire_df[
+            'Have you planted any vegetation (tress) on-farm since 1990'
+        ].iloc[0]
+        # Planting mapped (Y/N)?
+
+        # Fuel
+        fuels = ['diesel', 'petrol', 'LPG']
+        for i, fuel in enumerate(fuels):
+            # Begining (L)
+            ws.cell(33 + 3 * i, 2).value = questionnaire_df[
+                f'How much {fuel} did you have on hand at the start of the last calendar year?'
+            ].iloc[0]
+            # Purchased (L)
+            ws.cell(34 + 3 * i, 2).value = questionnaire_df[
+                f'How much {fuel} did you purchase throughout the year?'
+            ].iloc[0]
+            # End (l)
+            ws.cell(35 + 3 * i, 2).value = questionnaire_df[
+                f'How much {fuel} did you have on hand at the end of the last calendar year?'
+            ].iloc[0]
+
 
         # Set the reference cell for offset below
         CropType = Cell.Cell(ws, 9, 1)
