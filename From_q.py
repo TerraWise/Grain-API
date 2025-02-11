@@ -1,22 +1,39 @@
-import csv
+import os, tempfile, shutil, glob
 import pandas as pd
 import numpy as np
 from datetime import datetime as dt
-import os
 import geopandas as gpd
-import tempfile
-import shutil
-import glob
+
+
+# Join crop specific dataframe
+def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
+    cols_to_drop = [
+        'ObjectID', 
+        'GlobalID', 
+        'ParentGlobalID', 
+        'CreationDate', 
+        'Creator', 
+        'EditDate', 
+        'Editor'
+    ]
+    crop_specific_input = {}
+    for crop in crops:
+        FertChem = []
+        for csv in os.listdir(tmp_input_dir):
+            if crop in csv:
+                FertChem.append(
+                    pd.read_csv(os.path.join(tmp_input_dir, csv))
+                )
+        crop_specific_input[crop] = pd.concat(FertChem, axis=1)
+        crop_specific_input[crop].drop(cols_to_drop, axis=1)
+    return crop_specific_input
+
 
 # Extract follow up question
 def FollowUp(df: pd.DataFrame, dir):
     # Extract from csv
     info = {}
     # A fall back Attribute error
-    try:
-        info['Enterprises'] = df['Please select the following that best apply to your operation'].iloc[0].split('\n')
-    except AttributeError:
-        info['Enterprises'] = "Haven't selected business's enterprises"
     try:
         info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
     except AttributeError:
@@ -25,14 +42,14 @@ def FollowUp(df: pd.DataFrame, dir):
         info['Farm management software'] = df['Please select the applications you use below'].iloc[0].split('\n')
     except AttributeError:
         info['Farm management software'] = "Didn't select software"
-    try:    
-        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
-    except AttributeError:
-        info['Variable rate'] = "Don't know. Need to ask again."    
     try:
         info['Access to software & \n record of variable rate'] = df['Are you happy to provide us with access to these applications, records and/or service providers to conduct your carbon account? If so, provide details via toby@terrawise.au or call 0488173271 for clarification'].iloc[0]
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
+    try:    
+        info['Variable rate'] = df['Do you use variable rate technology (VRT) across your property ?'].iloc[0]
+    except AttributeError:
+        info['Variable rate'] = "Don't know. Need to ask again."    
     # Write out the follow up question
     with open(os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
