@@ -13,6 +13,7 @@ from datetime import datetime as dt
 import numpy as np
 import datetime as dt
 from weather_stations import *
+from zipfile import ZipFile
 
 # Get current path
 cwd = os.getcwd()
@@ -24,11 +25,38 @@ tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'A
 if tool == "Extraction":
     st.header("Questionnaire extraction")
 
-    in_q = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
+    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
+
+    tmp_input_dir = tempfile.mkdtemp()
+
+    with ZipFile(zipfile) as zObject:
+        zObject.extractall(tmp_input_dir)
+    for csv in os.listdir(
+        os.path.join(os.curdir, tmp_input_dir)
+    ):
+        if 'questionnaire' in csv:
+            questionnaire_df = pd.read_csv(csv)
+
+    cols_to_drop = [
+        'ObjectID', 
+        'GlobalID',
+        'CreationDate', 
+        'Creator', 
+        'EditDate', 
+        'Editor',
+        'x',
+        'y'
+    ]
+
+    questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
+
+    production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0]).year
+
+    questionnaire_df['Production Year'].iloc[0] = production_year
 
     try:
-        df = pd.read_csv(in_q)
-        crops = df['What crops did you grow last year?'].iloc[0].split('\n')
+        crops = questionnaire_df['What crops did you grow last year?'].iloc[0].split(',')
+        crop_specific_input = CropAssemble(tmp_input_dir, crops)
     except ValueError:
         st.write("Don't have an input")
 
@@ -38,12 +66,12 @@ if tool == "Extraction":
 
         st.write(crops)
 
-    tab1, tab2 = st.tabs(['Check questionnaire', "Get weather from DPIRD's API"])
+    tab1, tab2, tab3 = st.tabs(['Check questionnaire', 'Check fert/chem input', "Get weather from DPIRD's API"])
 
     with tab1:
         try:
             df_t = {}
-            for label, content in df.items():
+            for label, content in questionnaire_df.items():
                 df_t[label] = content.iloc[0]
             # Transform the questionnaire into a df for first pass
             st.dataframe(df_t)
@@ -51,6 +79,13 @@ if tool == "Extraction":
             st.write("Nothing to see here!")
 
     with tab2:
+        try:
+            crop = st.radio('Choose the crop to view', crops)
+            st.write(crop_specific_input[crop])
+        except Exception as e:
+            st.write(e)
+
+    with tab3:
         # Upload shapefile for SILO's API (weather data)
         shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
 
@@ -141,25 +176,30 @@ if tool == "Extraction":
         # A temporary output file
         tmp_out = tempfile.mkdtemp()
         # Write out the general info
-        FollowUp(df, tmp_out)
+        FollowUp(questionnaire_df, tmp_out)
 
         # Crop specific info
-        SpecCrop(df, crops, tmp_out)
+        LandManagement(questionnaire_df, crops, tmp_out)
 
         # Write into the inventory sheet
-        wb = openpyxl.load_workbook("Inventory sheet v1 - Grain.xlsx")
+        wb = openpyxl.load_workbook("Inventory sheet v2 - Grain.xlsx")
 
         # Fill in general info
         ws = wb['General information']
 
-        ## Business name & location & rf
-        ws.cell(1, 2).value = df['Property name '].iloc[0]
-        ws.cell(2, 2).value = df['Property location'].iloc[0]
-        ws.cell(1, 11).value = df['Property average annual rainfall (mm)'].iloc[0]
-        for i in range(2, 3):
-            ws.cell(1, i + 1).value = df[f'Property {i} name '].iloc[0]
-            ws.cell(2, i + 1).value = df[f'Property {i} location'].iloc[0]
-            ws.cell(1, i + 10).value = df[f'Property {i} average annual rainfall (mm)'].iloc[0]
+        # General information
+        # Client name
+        ws.cell(2, 2).value = questionnaire_df['Client Name'].iloc[0]
+        # Business name
+        ws.cell(3, 2).value = questionnaire_df['Business Name'].iloc[0]
+        # Client email
+        ws.cell(4, 2).value = questionnaire_df['Email Address'].iloc[0]
+        # Production year assessed
+        ws.cell(5, 2).value = production_year
+
+        # Location
+        # Property name
+        ws.cell(7, 2).value = questionnaire_df['Property Name'].iloc[0]
 
         ## Rainfall & request ETo from DPIRD
         try:
