@@ -1,4 +1,4 @@
-import os, tempfile, shutil, glob
+import os, tempfile, shutil, glob, csv
 import pandas as pd
 import numpy as np
 from datetime import datetime as dt
@@ -30,7 +30,7 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
 
 
 # Extract follow up question
-def FollowUp(df: pd.DataFrame, dir):
+def FollowUp(df: pd.DataFrame, dir: str):
     # Extract from csv
     info = {}
     # A fall back Attribute error
@@ -49,14 +49,21 @@ def FollowUp(df: pd.DataFrame, dir):
     try:    
         info['Variable rate'] = df['Do you use variable rate technology (VRT) across your property ?'].iloc[0]
     except AttributeError:
-        info['Variable rate'] = "Don't know. Need to ask again."    
+        info['Variable rate'] = "Don't know. Need to ask again."
+    if df['Do you engage any on-farm contractors used services during the year?'].iloc[0] == 'yes':
+        try:
+            info['Contractor activities'] = df['Select all that apply']
+        except AttributeError:
+            info['Contractor activities'] = "Yes engagement with contractor but didn't select the activities"
+    else:
+        info['Contractor activities'] = "No contractor activites on-farm during preivoues production year"
     # Write out the follow up question
     with open(os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
         csv_out.writeheader()
         csv_out.writerow(info)
 
-def SpecCrop(df: pd.DataFrame, crops: list, dir):
+def LandManagement(df: pd.DataFrame, crops: list, dir: str):
     # Loops for crop specific info
     # based on the number of crops
     # Number of crop in the questionnaire
@@ -67,22 +74,11 @@ def SpecCrop(df: pd.DataFrame, crops: list, dir):
                 # Land management
                 if 'land management' in label:
                     try:
-                        crop_info[f'Land management practices - {crop}'] = content.iloc[0].split('\n')
+                        crop_info[f'Land management practices - {crop}'] = content.iloc[0].split(',')
                     except AttributeError:
-                        crop_info[f'{crop}'] = "Wasn't answered in the form"
-                # Contractors
-                if 'contractor' in label:
-                    try:
-                        crop_info[f'{label}'] = content.iloc[0].split('\n')
-                    except AttributeError:
-                        crop_info[f'{label}'] = "Wasn't answered in the form"
-        try:
-            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
-                                     in crop_info.items()]))
-        except ValueError:
-            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
-                                     in crop_info.items()]), index=[0])
-        out.to_csv(os.path.join(dir, f'{crop}_follow_up.csv'))
+                        crop_info[f'Land management practices - {crop}'] = "Wasn't answered in the form"
+        out = pd.DataFrame(crop_info)
+        out.to_csv(os.path.join(dir, f'LandMangementPractices.csv'))
 
 # Fertilser info from questionnaire
 def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
