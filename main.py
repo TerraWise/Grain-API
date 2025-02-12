@@ -28,37 +28,42 @@ if tool == "Extraction":
     zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
 
     tmp_input_dir = tempfile.mkdtemp()
+    try:
+        with ZipFile(zipfile) as zObject:
+            zObject.extractall(tmp_input_dir)
+        for csv in os.listdir(
+            os.path.join(os.curdir, tmp_input_dir)
+        ):
+            if 'questionnaire' in csv:
+                questionnaire_df = pd.read_csv(csv)
+        
+        cols_to_drop = [
+            'ObjectID', 
+            'GlobalID',
+            'CreationDate', 
+            'Creator', 
+            'EditDate', 
+            'Editor',
+            'x',
+            'y'
+        ]
 
-    with ZipFile(zipfile) as zObject:
-        zObject.extractall(tmp_input_dir)
-    for csv in os.listdir(
-        os.path.join(os.curdir, tmp_input_dir)
-    ):
-        if 'questionnaire' in csv:
-            questionnaire_df = pd.read_csv(csv)
+        questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
 
-    cols_to_drop = [
-        'ObjectID', 
-        'GlobalID',
-        'CreationDate', 
-        'Creator', 
-        'EditDate', 
-        'Editor',
-        'x',
-        'y'
-    ]
+        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0]).year
 
-    questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
+        questionnaire_df['Production Year'].iloc[0] = production_year
+    except AttributeError:
+        st.write("Haven't upload a zip of Survey123 output!")
 
-    production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0]).year
-
-    questionnaire_df['Production Year'].iloc[0] = production_year
 
     try:
         crops = questionnaire_df['What crops did you grow last year?'].iloc[0].split(',')
         crop_specific_input = CropAssemble(tmp_input_dir, crops)
     except ValueError:
         st.write("Don't have an input")
+    except NameError:
+        pass
 
     # Number of crop in the questionnaire
     if st.button("Get your crop types", "CropType"):
@@ -82,8 +87,9 @@ if tool == "Extraction":
         try:
             crop = st.radio('Choose the crop to view', crops)
             st.write(crop_specific_input[crop])
-        except Exception as e:
-            st.write(e)
+        except NameError:
+            st.markdown(':woman-gesturing-no:!:man-gesturing-no:!\
+                        Quickly upload files to discover the secret lies here')
 
     with tab3:
         # Upload shapefile for SILO's API (weather data)
