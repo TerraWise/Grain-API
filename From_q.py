@@ -182,27 +182,40 @@ def get_num_applied(crops: list, products_applied: dict):
     return len(products_applied[crops[0]]) + get_num_applied(crops[1:], products_applied)
 
 # Vegetation
-def ToVeg(df: pd.DataFrame) -> dict:
-    pre_year = dt.now().year
-
-    vegetation = {}
+def ToVeg(questionnaire_df: pd.DataFrame, dir: str) -> dict:
+    current_year = dt.now().year
+    vegetation = []
     # Set the evaluate to 'Yes' or 'No' based on the questionnaire
-    eva = df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
-
-    for label, content in df.items():
-        cond = 'veg' in label.lower()
-        if eva == 'Yes':
-            if cond and 'describes' in label.lower():
-                vegetation['species'] = content.iloc[0]
-            if cond and 'hectares' in label.lower():
-                vegetation['ha'] = content.iloc[0]
-            if cond and 'year' in label.lower():
-                planted_year = content.iloc[0]
-                vegetation['age'] = pre_year - planted_year
-            if cond and 'soil' in label.lower():
-                vegetation['soil type'] = content.iloc[0]
-
+    eva = questionnaire_df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
+    for csv in os.listdir(dir):
+        if 'veg' in csv:
+            df = pd.read_csv(
+                os.path.join(dir, csv)
+            )
+            for i in df.index:
+                species = df['Which species were planted?'].iloc[i]
+                planted_year = df['What year were these trees planted?'].iloc[i]
+                configuration = df['How were these plantings configured?'].iloc[i]
+                if configuration == 'belt':
+                    rows = df['How many rows did your belt planting consists of?'].iloc[i]
+                else:
+                    rows = None
+                soil_type = df['What was the soil type?'].iloc[i]
+                vegetation.append(
+                    {
+                        # 'region': region,
+                        'species': species,
+                        'soil': soil_type,
+                        # 'area': area,
+                        'planted_year': planted_year,
+                        'age': current_year - planted_year
+                    }
+                )
     return vegetation
+
+# Helper function for region
+
+
 
 # Get the lat, lon of the shapefile
 def GetXY(shapes):
