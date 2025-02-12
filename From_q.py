@@ -153,6 +153,10 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
                                 name = df[f'Was this lime or limesand?.{i}'].iloc[0]
                             except KeyError:
                                 name = df['Was this lime or limesand?'].iloc[0]
+                        elif ame == 'other':
+                            name = df[
+                                f''
+                            ].iloc[0]
                         else:
                             name = ame
                         if  cond and 'hectares' in col_lower:
@@ -164,9 +168,9 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
                         products_applied[crop].append(
                             {
                                 'name': name,
-                                'area': ha,
+                                'source': source,
                                 'rate': rate,
-                                'source': source
+                                'area': ha
                             }
                         )
     return products_applied
