@@ -264,19 +264,25 @@ if tool == "Extraction":
 
 
         # Set the reference cell for offset below
-        CropType = Cell.Cell(ws, 9, 1)
+        CropType_Header = Cell.Cell(ws, 46, 1)
         # Write into cells under corresponding crop types
         # using the refrence cell
         for i in range(12): # Number of crop type
-            CC = CropType.offset(i + 1)
+            row = CropType_Header.offset(i + 1)
             for crop in crops:
-                if crop == CC.value:
+                if crop == row.value:
                     # Area sown
-                    CC.offset(column=1).value = df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+                    row.offset(column=1).value = questionnaire_df[f'What area was sown to {crop.lower()}?'].iloc[0]
                     # Last year yield
-                    CC.offset(column=2).value = df[f'What did your {crop.lower()} crop yield on average last year? (t/ha)'].iloc[0]
-                    # Fraction of crop burnt
-                    CC.offset(column=3).value = df[f'Was any land burned to prepare for {crop.lower()} crops last year? If so, how much? (Ha)'].iloc[0] / df[f'What area was sown to {crop.lower()} last year? (Ha)'].iloc[0]
+                    row.offset(column=2).value = questionnaire_df[f'What did your {crop.lower()} crop yield on average?'].iloc[0]
+                    # Burn (Y/N)
+                    row.offset(column=6).value = questionnaire_df[f'Did you burn any of your {crop.lower()} paddocks?'].iloc[0]
+                    # Area burnt
+                    row.offset(column=7).value = questionnaire_df[
+                        f'What was the total area of windrows burnt?'
+                    ].iloc[0] + questionnaire_df[
+                        f'What was the total area of paddocks burnt?'
+                    ].iloc[0] # Need update to specific crop type
 
         ## Electricity
         ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
