@@ -326,12 +326,14 @@ if tool == "Extraction":
             for fert in crop_ferts:
                 # Product name
                 ws.cell(row + space, 1).value = fert['name']
-                # Rate
-                ws.cell(row + space, 6).value = fert['rate']
                 # Forms
                 ws.cell(row + space, 2).value = fert['form']
                 # Crop
-                ws.cell(row + space, 4).value = crop 
+                ws.cell(row + space, 4).value = crop
+                # Rate
+                ws.cell(row + space, 6).value = fert['rate']
+                # Area
+                ws.cell(row + space, 7).value = fert['area']
                 space += 1
 
 
@@ -352,12 +354,14 @@ if tool == "Extraction":
             for chem in crop_chems:
                 # Product name
                 ws.cell(row + space, 1).value = chem['name']
-                # # Rate
-                ws.cell(row + space, 17).value = chem['rate']
-                # # Forms
+                # Forms
                 ws.cell(row + space, 2).value = chem['form']
-                # # Crop
+                # Crop
                 ws.cell(row + space, 16).value = crop
+                # Rate
+                ws.cell(row + space, 17).value = chem['rate']
+                # Area
+                ws.cell(row + space, 18).value = chem['area']
                 space += 1
 
 
@@ -365,24 +369,27 @@ if tool == "Extraction":
         ws = wb['Lime Product - Input']
         # List of products (lime/dolomite and gypsum) applied
         # breaking down by crop type
-        products_applied = ToSoilAme(df, crops)
-        # Total numbers of product applied
-        num_prod_applied = get_num_applied(crops, products_applied)
-
-        i = 0 # Spacing
+        products_applied = ToSoilAme(questionnaire_df, crops)
         # Loop to write into the worksheet
-        while i < num_prod_applied:
-            for crop in crops:
-                for product in products_applied[crop]:
-                    # Product
-                    ws.cell(2 + i, 1).value = product
-                    # Crop
-                    ws.cell(2 + i, 3).value = crop
-                    # Area
-                    ws.cell(2 + i, 5).value = products_applied[crop][product]['area']
-                    # Rate
-                    ws.cell(2 + i, 4).value = products_applied[crop][product]['rate']
-                    i += 1
+        for i, crop in enumerate(crops):
+            crop_products = products_applied[crop]
+            space = 0
+            if i == 0:
+                row = 2
+            if i > 0:
+                previous_crop = crops[i-1]
+                row += len(products_applied[previous_crop])
+            for product in products_applied:
+                # Soil amelioration
+                ws.cell(row + space, 1).value = product['name']
+                # Source
+                ws.cell(row + space, 2).value = product['source']
+                # Crop
+                ws.cell(row + space, 4).value = crop
+                # Rate
+                ws.cell(row + space, 5).value = product['rate']
+                # Area
+                ws.cell(row + space, 6).value = product['area']
 
         #  Fuel usage - PW pathway will be in the future
         ws = wb['Fuel Usage - Input']
