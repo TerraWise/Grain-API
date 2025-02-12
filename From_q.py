@@ -25,7 +25,7 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
                     pd.read_csv(os.path.join(tmp_input_dir, csv))
                 )
         crop_specific_input[crop] = pd.concat(FertChem, axis=1)
-        crop_specific_input[crop].drop(cols_to_drop, axis=1)
+        crop_specific_input[crop] = crop_specific_input[crop].drop(cols_to_drop, axis=1)
     return crop_specific_input
 
 
@@ -79,57 +79,59 @@ def LandManagement(df: pd.DataFrame, crops: list, dir: str):
                         crop_info[f'Land management practices - {crop}'] = "Wasn't answered in the form"
         out = pd.DataFrame(crop_info)
         out.to_csv(os.path.join(dir, f'LandMangementPractices.csv'))
+       
 
 # Fertilser info from questionnaire
-def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
-    products_applied = []
+def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, which: str) -> dict:
+    products_applied = {}
     for crop in crops:
-        products = {}
+        df = input_dict[crop]
+        products = []
         names = []
         rates = []
         forms = []
-        # area = [] 
-        for label, content in df.items():
-            if a == 1: # To choose fert
-                cond = crop.lower() in label.lower() and 'fertiliser' in label.lower()
-                if cond and 'npk' in label.lower():
+        whole_area = questionnaire_df[f'What area was sown to {crop}?'].iloc[0]
+        area = []
+        for col in df.columns:
+            for i in df.index:
+                col_lower = col.lower()
+                cond = which in col_lower
+                if cond and 'select' in col_lower:
                     try:
-                        if not np.isnan(float(content.iloc[0])):
-                            if cond and 'other' in label.lower():
-                                names.append(content.iloc[0])
-                    except ValueError:
-                        names.append(content.iloc[0])
-                if cond and 'rate' in label.lower():
-                    rates.append(content.iloc[0])
-                if cond and 'liquid' in label.lower():
-                    forms.append(content.iloc[0])
-                # if cond and 'hectares' in label.lower():
-                #     area.append(content.iloc[0])
-            else: # for chemical
-                cond = crop.lower() in label.lower() and 'chemical' in label.lower()
-                if cond and 'select' in label.lower():
-                    try:
-                        if not np.isnan(float(content.iloc[0])):
-                            if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
-                                names.append(content.iloc[0])
-                    except ValueError:
-                        names.append(content.iloc[0])
-                if cond and 'rate' in label.lower():
-                    rates.append(content.iloc[0])
-                if cond and 'liquid' in label.lower():
-                    forms.append(content.iloc[0])
-                # if cond and 'hectares' in label.lower():
-                #     area.append(content.iloc[0])
-        i = 0
-        while i < len(names):
-            products[f'product_{i}'] = {
-                'name': names[i],
-                'rate': rates[i],
-                'form': forms[i]
-            }
-            i += 1
-        products_applied.append(products)
-    return products_applied
+                        if np.isnan(df[col].iloc[i]):
+                            name = df['Please specify'].iloc[i].split('_')
+                            names.append(' '.join(name))
+                    except TypeError:
+                        name = df[col].iloc[i].split('_')
+                        names.append(' '.join(name))      
+                if cond and 'rate' in col_lower:
+                    if np.isnan(df[col].iloc[i]):
+                        pass
+                    else:
+                        rates.append(df[col].iloc[i])
+                if cond and 'how' in col_lower and 'hectares' in col_lower:
+                    if df[col].iloc[i] == 'whole':
+                        area.append(whole_area)
+                    else:
+                        area.append(
+                            df[
+                                'Please spcify the total area of your wheat crop this fertiliser was applied to'
+                            ].iloc[i]
+                        )
+                if cond and 'form' in col_lower:
+                    forms.append(df[col].iloc[i])
+        j = 0
+        while j < len(names):
+            products.append(
+                {
+                    'name': names[j],
+                    'form': forms[j],
+                    'rate': rates[j],
+                    'area': area[j]
+                }
+            )
+            j += 1
+        products_applied[crop] = products
 
 # Soil amelioration
 def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
