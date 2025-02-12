@@ -321,7 +321,8 @@ if tool == "Extraction":
             if i == 0: # Set the starting row
                 row = 2
             if i > 0: # Starting row after first crop
-                row += len(crop_ferts)
+                previous_crop = crops[i-1]
+                row += len(ferts[previous_crop])
             for fert in crop_ferts:
                 # Product name
                 ws.cell(row + space, 1).value = fert['name']
@@ -338,22 +339,23 @@ if tool == "Extraction":
         ws = wb['Chemical Applied - Input']
         # List of chemical applied break downs
         # by crop
-        chem_applied = ListFertChem(df, crops, 2)
+        chems = ListFertChem(crop_specific_input, crops, questionnaire_df, 'chemical')
         # Refer to fertiliser section
         for i, crop in enumerate(crops):
-            chems = chem_applied[i]
+            crop_chems = chems[crop]
             space = 0
             if i == 0:
                 row = 2
             if i > 0:
-                row += len(chem_applied[i-1])
-            for chem in chems:
+                previous_crop = crops[i-1]
+                row += len(chems[previous_crop])
+            for chem in crop_chems:
                 # Product name
-                ws.cell(row + space, 1).value = chems[chem]['name']
+                ws.cell(row + space, 1).value = chem['name']
                 # # Rate
-                ws.cell(row + space, 17).value = chems[chem]['rate']
+                ws.cell(row + space, 17).value = chem['rate']
                 # # Forms
-                ws.cell(row + space, 2).value = chems[chem]['form']
+                ws.cell(row + space, 2).value = chem['form']
                 # # Crop
                 ws.cell(row + space, 16).value = crop
                 space += 1
