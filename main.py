@@ -251,7 +251,10 @@ if tool == "Extraction":
             'Have you planted any vegetation (tress) on-farm since 1990'
         ].iloc[0]
         # Planting mapped (Y/N)?
-        # Idk what to do with this one
+        if ws.cell(25, 2).value == 'Yes':
+            ws.cell(26, 2).value = pd.read_csv(
+                    os.path.join(tmp_input_dir, 'veg_info_23.csv')
+                )[' Location of plantings'].iloc[0]
 
         # Electricity
         # Annual electricity use (KWh)
@@ -396,18 +399,22 @@ if tool == "Extraction":
 
         # Vegetation
         ws = wb['Vegetation - Input']
-
         # A dictionary of vegetation planted
-        vegetation = ToVeg(df)
-
+        vegetation = ToVeg(questionnaire_df, tmp_input_dir)
         # Write into the worksheet
-        try:
-            ws.cell(2, 2).value = vegetation['species']
-            ws.cell(2, 3).value = vegetation['soil type']
-            ws.cell(2, 4).value = vegetation['ha']
-            ws.cell(2, 5).value = vegetation['age']
-        except KeyError: # If no vegetation planted, pass
-            pass
+        for i in range(len(vegetation)):
+            # Region
+            # ws.cell(2 + i, 1).value = vegetaion[i]['region']
+            # Species
+            ws.cell(2 + i, 2).value = vegetation[i]['species']
+            # Soil
+            ws.cell(2 + i, 4).value = vegetation[i]['soil']
+            # Area
+            # ws.cell(2 + i, 5).value = vegetation[i]['area']
+            # Planted year
+            ws.cell(2 + i, 6).value = vegetation[i]['planted_year']
+            # Age
+            ws.cell(2 + i, 7).value = vegetation[i]['age']
         
         # Save the workbook
         wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
@@ -417,12 +424,13 @@ if tool == "Extraction":
         shutil.make_archive("Question_Extract", "zip", tmp_out)
 
         # Name the file by the first property name
-        zip_name = df.loc[0, 'Property name '] + '_' + str(dt.today().strftime('%d-%m-%Y'))
+        zip_name = questionnaire_df.loc[0, 'Property name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
         with open("Question_Extract.zip", "rb") as f:
             st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
         
         # Remove the unused folder
+        shutil.rmtree(tmp_input_dir)
         shutil.rmtree(tmp_out)
         shutil.rmtree(os.path.join(cwd, 'weather_output'))
 else:
