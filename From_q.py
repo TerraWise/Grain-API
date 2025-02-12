@@ -136,25 +136,39 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
 # Soil amelioration
 def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
     # List of soil amelioration
-    soil_amelioration = ['lime', 'dolomite']
+    soil_amelioration = ['lime', 'dolomite', 'gypsum', 'other']
     # Empty dict to store result
     products_applied = {}
     # Iterate over different crop types
-    for crop in crops:
-        products_applied[crop] = {}
-        for ame in soil_amelioration: 
-            for label, content in df.items():
-                cond = crop.lower() in label.lower() and ame in label.lower()
-                if  cond and 'hectares' in label.lower():
-                    ha = content.iloc[0]
-                if cond and 'rate' in label.lower():
-                    rate = content.iloc[0]
-            if not np.isnan(ha) or not np.isnan(rate):
-                products_applied[crop][ame] = {
-                    'rate': rate,
-                    'area': ha
-                }
-    
+    for i, crop in enumerate(crops):
+        products_applied[crop] = []
+        for ame in soil_amelioration:
+            for col in df.columns:
+                col_lower = col.lower()
+                cond = crop.lower() in col_lower and ame in col_lower
+                if cond and 'applied' in col_lower:
+                    if df[col].iloc[0] == 'yes':
+                        if ame == 'lime':
+                            try:
+                                name = df[f'Was this lime or limesand?.{i}'].iloc[0]
+                            except KeyError:
+                                name = df['Was this lime or limesand?'].iloc[0]
+                        else:
+                            name = ame
+                        if  cond and 'hectares' in col_lower:
+                            ha = df[col].iloc[0]
+                        if cond and 'rate' in col_lower:
+                            rate = df[col].iloc[0]  
+                        if cond and 'sourced' in col_lower:
+                            source = df[col].iloc[0]
+                        products_applied[crop].append(
+                            {
+                                'name': name,
+                                'area': ha,
+                                'rate': rate,
+                                'source': source
+                            }
+                        )
     return products_applied
 
 # Get the total number of products applied
