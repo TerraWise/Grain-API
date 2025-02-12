@@ -173,13 +173,19 @@ if tool == "Extraction":
                 st.download_button('Download weather data?', f, file_name=zip_name+".zip")
 
     if st.button("Start the extraction process", key="Extraction"):
+
+
         # A temporary output file
         tmp_out = tempfile.mkdtemp()
+
+
         # Write out the general info
         FollowUp(questionnaire_df, tmp_out)
 
+
         # Crop specific info
         LandManagement(questionnaire_df, crops, tmp_out)
+
 
         # Write into the inventory sheet
         wb = openpyxl.load_workbook("Inventory sheet v2 - Grain.xlsx")
@@ -281,7 +287,6 @@ if tool == "Extraction":
                 f'How much {fuel} did you have on hand at the end of the last calendar year?'
             ].iloc[0]
 
-
         # Set the reference cell for offset below
         CropType_Header = Cell.Cell(ws, 46, 1)
         # Write into cells under corresponding crop types
@@ -303,37 +308,31 @@ if tool == "Extraction":
                         f'What was the total area of paddocks burnt?'
                     ].iloc[0] # Need update to specific crop type
 
-        ## Electricity
-        ws.cell(22, 5).value = df['Annual electricity usage last year (kwh)'].iloc[0]
-        # Percentage of renewable electricity
-        try:
-            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0].rstrip('%'))
-        except AttributeError:
-            ws.cell(22, 6).value = float(df['Percentage of annual renewable electricity usage last year '].iloc[0])
 
         # Fertiliser
         ws = wb['Fertiliser Applied - Input']
         # List of fertiliser applied breaks down by
         # crop type
-        fert_applied = ListFertChem(df, crops, 1)
+        ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, 'fertiliser')
         # Loop to write into the worksheet
         for i, crop in enumerate(crops):
-            ferts = fert_applied[i]
+            crop_ferts = ferts[crop]
             space = 0 # Spacing between products of the same crop
             if i == 0: # Set the starting row
                 row = 2
             if i > 0: # Starting row after first crop
-                row += len(fert_applied[i-1])
-            for fert in ferts:
+                row += len(crop_ferts)
+            for fert in crop_ferts:
                 # Product name
-                ws.cell(row + space, 1).value = ferts[fert]['name']
-                # # Rate
-                ws.cell(row + space, 6).value = ferts[fert]['rate']
-                # # Forms
-                ws.cell(row + space, 2).value = ferts[fert]['form']
-                # # Crop
+                ws.cell(row + space, 1).value = fert['name']
+                # Rate
+                ws.cell(row + space, 6).value = fert['rate']
+                # Forms
+                ws.cell(row + space, 2).value = fert['form']
+                # Crop
                 ws.cell(row + space, 4).value = crop 
                 space += 1
+
 
         # Chemical
         ws = wb['Chemical Applied - Input']
@@ -359,6 +358,7 @@ if tool == "Extraction":
                 ws.cell(row + space, 16).value = crop
                 space += 1
 
+
         # Lime/gypsum
         ws = wb['Lime Product - Input']
         # List of products (lime/dolomite and gypsum) applied
@@ -382,7 +382,7 @@ if tool == "Extraction":
                     ws.cell(2 + i, 4).value = products_applied[crop][product]['rate']
                     i += 1
 
-        #  Fuel usage
+        #  Fuel usage - PW pathway will be in the future
         ws = wb['Fuel Usage - Input']
 
         # Vegetation
