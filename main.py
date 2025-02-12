@@ -245,6 +245,25 @@ if tool == "Extraction":
             'Have you planted any vegetation (tress) on-farm since 1990'
         ].iloc[0]
         # Planting mapped (Y/N)?
+        # Idk what to do with this one
+
+        # Electricity
+        # Annual electricity use (KWh)
+        ws.cell(28, 2).value = questionnaire_df[
+            'What was your annual electricity consumption'
+        ].iloc[0]
+        # Renewable (Y/N)
+        ws.cell(29, 2).value = questionnaire_df[
+            'Did you use renewable energy?'
+        ].iloc[0]
+        # Renewable source
+        ws.cell(30, 2).value = questionnaire_df[
+            'What was the source(s) of this renewable energy?'
+        ].iloc[0].split(',')
+        # % renewable
+        ws.cell(31, 2).value = questionnaire_df[
+            'What percentage of the total electricity consumption came from this source?'
+        ].iloc[0]
 
         # Fuel
         fuels = ['diesel', 'petrol', 'LPG']
