@@ -8,6 +8,7 @@ from Extract_params import *
 from From_q import *
 import requests as rq
 import streamlit as st
+import geopandas as gpd
 import shutil, os, tempfile
 from datetime import datetime as dt
 import numpy as np
@@ -25,7 +26,8 @@ tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'A
 if tool == "Extraction":
     st.header("Questionnaire extraction")
 
-    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'csv')
+    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip')
+    planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
 
     tmp_input_dir = tempfile.mkdtemp()
     try:
@@ -97,7 +99,12 @@ if tool == "Extraction":
 
         try: # Incase there are no files (don't want to scare people away)
             # Get the coordinate from the shapefile
-            lon, lat = GetXY(shapes)
+
+            gdf = read_shapes(shapes)
+
+            centroid = gdf.dissolve().centroid
+            lon = centroid.x[0]
+            lat = centroid.y[0]
 
             # A df of nearest station
             nearest_station = get_nearby_stations(lat, lon)
@@ -410,13 +417,13 @@ if tool == "Extraction":
         # Write into the worksheet
         for i in range(len(vegetation)):
             # Region
-            # ws.cell(2 + i, 1).value = vegetaion[i]['region']
+            ws.cell(2 + i, 1).value = vegetaion[i]['region']
             # Species
             ws.cell(2 + i, 2).value = vegetation[i]['species']
             # Soil
             ws.cell(2 + i, 4).value = vegetation[i]['soil']
             # Area
-            # ws.cell(2 + i, 5).value = vegetation[i]['area']
+            ws.cell(2 + i, 5).value = vegetation[i]['area']
             # Planted year
             ws.cell(2 + i, 6).value = vegetation[i]['planted_year']
             # Age
