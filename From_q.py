@@ -182,11 +182,14 @@ def get_num_applied(crops: list, products_applied: dict):
     return len(products_applied[crops[0]]) + get_num_applied(crops[1:], products_applied)
 
 # Vegetation
-def ToVeg(questionnaire_df: pd.DataFrame, dir: str) -> dict:
+def ToVeg(questionnaire_df: pd.DataFrame, dir: str, planting_shapes) -> dict:
     current_year = dt.now().year
     vegetation = []
     # Set the evaluate to 'Yes' or 'No' based on the questionnaire
     eva = questionnaire_df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
+    if eva == 'No':
+        return
+    region, area = get_planting_region(planting_shapes)
     for csv in os.listdir(dir):
         if 'veg' in csv:
             df = pd.read_csv(
@@ -196,17 +199,13 @@ def ToVeg(questionnaire_df: pd.DataFrame, dir: str) -> dict:
                 species = df['Which species were planted?'].iloc[i]
                 planted_year = df['What year were these trees planted?'].iloc[i]
                 configuration = df['How were these plantings configured?'].iloc[i]
-                if configuration == 'belt':
-                    rows = df['How many rows did your belt planting consists of?'].iloc[i]
-                else:
-                    rows = None
                 soil_type = df['What was the soil type?'].iloc[i]
                 vegetation.append(
                     {
-                        # 'region': region,
+                        'region': region,
                         'species': species,
                         'soil': soil_type,
-                        # 'area': area,
+                        'area': area,
                         'planted_year': planted_year,
                         'age': current_year - planted_year
                     }
@@ -214,11 +213,23 @@ def ToVeg(questionnaire_df: pd.DataFrame, dir: str) -> dict:
     return vegetation
 
 # Helper function for region
+def get_planting_region(shapes):
+    BOM_rainfall_gdf = gpd.read_file('BOM_RF_Region.zip')
+    gdf = read_shapes(shapes)
 
+    BOM_rainfall_gdf = BOM_rainfall_gdf.to_crs('WGS84')
+    gdf = gdf.to_crs('WGS84')
+
+    clipped_region = BOM_rainfall_gdf.clip(gdf)
+
+    region = clipped_region['DIST_NAME'].iloc[0]
+    area = gdf.to_crs(gdf.estimate_utm_crs()).area.iloc[0]
+    
+    return region, area
 
 
 # Get the lat, lon of the shapefile
-def GetXY(shapes):
+def read_shapes(shapes):
     with tempfile.TemporaryDirectory() as td:
         # Iterate over the uploaded file to get the filename
         for shape in shapes:
@@ -233,8 +244,5 @@ def GetXY(shapes):
             gdfs.append(gdf)
         # Group all the separate geo df into one complete geo df
         gdf = gpd.GeoDataFrame(pd.concat(gdfs))
-        centroid = gdf.dissolve().centroid
-        lon = centroid.x[0]
-        lat = centroid.y[0]
         shutil.rmtree(td)
-    return lon, lat
+    return gdf
