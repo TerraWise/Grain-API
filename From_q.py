@@ -3,7 +3,28 @@ import pandas as pd
 import numpy as np
 from datetime import datetime as dt
 import geopandas as gpd
+from zipfile import ZipFile
+import streamlit as st
 
+
+def FromTheTop(zipfile: str):
+    with tempfile.TemporaryDirectory() as td:
+        with ZipFile(zipfile) as zObject:
+            zObject.extractall(td)
+        unzip_dir = (
+            zipfile
+            .name
+            .split('.')[0]
+        )
+        filepath = os.path.join(td, unzip_dir)
+        for csv in os.listdir(filepath):
+            if 'questionnaire' in csv.lower():
+                questionnaire_df = pd.read_csv(
+                    os.path.join(filepath, csv)
+                )
+        crops = questionnaire_df['What crops did you grow?'].iloc[0].split(',')
+        crop_specific_input = CropAssemble(filepath, crops)
+    return crops, crop_specific_input, questionnaire_df
 
 # Join crop specific dataframe
 def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
@@ -18,14 +39,14 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
     ]
     crop_specific_input = {}
     for crop in crops:
-        FertChem = []
+        crop_specific_input[crop] = {}
         for csv in os.listdir(tmp_input_dir):
-            if crop in csv:
-                FertChem.append(
+            input = csv.split('_')[0]
+            if crop in csv and not 'machine_passes' in csv:
+                crop_specific_input[crop][input] = (
                     pd.read_csv(os.path.join(tmp_input_dir, csv))
+                    .drop(cols_to_drop, axis=1)
                 )
-        crop_specific_input[crop] = pd.concat(FertChem, axis=1)
-        crop_specific_input[crop] = crop_specific_input[crop].drop(cols_to_drop, axis=1)
     return crop_specific_input
 
 
@@ -36,14 +57,14 @@ def FollowUp(df: pd.DataFrame, dir: str):
     # A fall back Attribute error
     try:
         info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
-    except AttributeError:
+    except KeyError:
         info['List of on-farm machinery'] = "Don't have attachment, please follow up"
     try:
         info['Farm management software'] = df['Please select the applications you use below'].iloc[0].split('\n')
     except AttributeError:
         info['Farm management software'] = "Didn't select software"
     try:
-        info['Access to software & \n record of variable rate'] = df['Are you happy to provide us with access to these applications, records and/or service providers to conduct your carbon account? If so, provide details via toby@terrawise.au or call 0488173271 for clarification'].iloc[0]
+        info['Access to software & \n record of variable rate'] = df['Are you happy to provide us with access to these applications, record and/or service providers to conduct your carbon account?'].iloc[0]
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
     try:    
@@ -85,7 +106,7 @@ def LandManagement(df: pd.DataFrame, crops: list, dir: str):
 def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, which: str) -> dict:
     products_applied = {}
     for crop in crops:
-        df = input_dict[crop]
+        df = input_dict[crop][which]
         products = []
         names = []
         rates = []
@@ -97,14 +118,13 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                 col_lower = col.lower()
                 cond = which in col_lower
                 if cond and 'select' in col_lower:
-                    try:
-                        if np.isnan(df[col].iloc[i]):
-                            name = df['Please specify'].iloc[i].split('_')
-                            names.append(' '.join(name))
-                    except TypeError:
+                    if isinstance(df[col].iloc[i], float):
+                        name = df['Please specify'].iloc[i].split('_')
+                        names.append(' '.join(name))
+                    else:
                         name = df[col].iloc[i].split('_')
                         names.append(' '.join(name))      
-                if cond and 'rate' in col_lower:
+                if 'rate' in col_lower:
                     if np.isnan(df[col].iloc[i]):
                         pass
                     else:
@@ -132,6 +152,7 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
             )
             j += 1
         products_applied[crop] = products
+    return products_applied
 
 # Soil amelioration
 def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
@@ -155,31 +176,28 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
                                 name = df['Was this lime or limesand?'].iloc[0]
                         elif ame == 'other':
                             name = df[
-                                f''
+                                f'Please specify other soil ameliorant product'
                             ].iloc[0]
                         else:
                             name = ame
-                        if  cond and 'hectares' in col_lower:
+                        if cond and 'hectares' in col_lower:
                             ha = df[col].iloc[0]
                         if cond and 'rate' in col_lower:
                             rate = df[col].iloc[0]  
                         if cond and 'sourced' in col_lower:
                             source = df[col].iloc[0]
+                        if cond and 'times' in col_lower:
+                            times = df[col].iloc[0]
                         products_applied[crop].append(
                             {
                                 'name': name,
                                 'source': source,
                                 'rate': rate,
-                                'area': ha
+                                'area': ha,
+                                'times': times
                             }
                         )
     return products_applied
-
-# Get the total number of products applied
-def get_num_applied(crops: list, products_applied: dict):
-    if len(crops) == 0:
-        return 0
-    return len(products_applied[crops[0]]) + get_num_applied(crops[1:], products_applied)
 
 # Vegetation
 def ToVeg(questionnaire_df: pd.DataFrame, dir: str, planting_shapes) -> dict:
