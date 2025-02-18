@@ -24,7 +24,11 @@ def FromTheTop(zipfile: str):
                 )
         crops = questionnaire_df['What crops did you grow?'].iloc[0].split(',')
         crop_specific_input = CropAssemble(filepath, crops)
-    return crops, crop_specific_input, questionnaire_df
+        if questionnaire_df[
+                'Have you planted any vegetation (trees) on-farm since 1990'
+            ].iloc[0] == 'Yes':
+            veg_df = VegetationDf(filepath)
+    return crops, crop_specific_input, questionnaire_df, veg_df
 
 # Join crop specific dataframe
 def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
@@ -48,6 +52,15 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
                     .drop(cols_to_drop, axis=1)
                 )
     return crop_specific_input
+
+
+def VegetationDf(tmp_input_dir: str) -> pd.DataFrame:
+    for csv in os.listdir(tmp_input_dir):
+        if 'veg' in csv:
+            return pd.read_csv(
+                os.path.join(tmp_input_dir, csv)
+            )
+    return None
 
 
 # Extract follow up question
@@ -204,34 +217,28 @@ def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
     return products_applied
 
 # Vegetation
-def ToVeg(questionnaire_df: pd.DataFrame, dir: str, planting_shapes) -> dict:
+def ToVeg(veg_df, planting_shapes) -> dict:
     current_year = dt.now().year
     vegetation = []
     # Set the evaluate to 'Yes' or 'No' based on the questionnaire
-    eva = questionnaire_df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
-    if eva == 'No':
-        return
+    if veg_df is None:
+        return None
     region, area = get_planting_region(planting_shapes)
-    for csv in os.listdir(dir):
-        if 'veg' in csv:
-            df = pd.read_csv(
-                os.path.join(dir, csv)
-            )
-            for i in df.index:
-                species = df['Which species were planted?'].iloc[i]
-                planted_year = df['What year were these trees planted?'].iloc[i]
-                configuration = df['How were these plantings configured?'].iloc[i]
-                soil_type = df['What was the soil type?'].iloc[i]
-                vegetation.append(
-                    {
-                        'region': region,
-                        'species': species,
-                        'soil': soil_type,
-                        'area': area,
-                        'planted_year': planted_year,
-                        'age': current_year - planted_year
-                    }
-                )
+    for i in veg_df.index:
+        species = veg_df['Which species were planted?'].iloc[i]
+        planted_year = veg_df['What year were these trees planted?'].iloc[i]
+        configuration = veg_df['How were these plantings configured?'].iloc[i]
+        soil_type = veg_df['What was the soil type?'].iloc[i]
+        vegetation.append(
+            {
+                'region': region,
+                'species': species,
+                'soil': soil_type,
+                'area': area,
+                'planted_year': planted_year,
+                'age': current_year - planted_year
+            }
+        )
     return vegetation
 
 # Helper function for region
