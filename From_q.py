@@ -113,6 +113,7 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
         forms = []
         whole_area = questionnaire_df[f'What area was sown to {crop}?'].iloc[0]
         area = []
+        times = []
         for col in df.columns:
             for i in df.index:
                 col_lower = col.lower()
@@ -140,6 +141,8 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                         )
                 if cond and 'form' in col_lower:
                     forms.append(df[col].iloc[i])
+                if cond and 'times' in col_lower:
+                    times.append(df[col].iloc[i])
         j = 0
         while j < len(names):
             products.append(
@@ -147,7 +150,8 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                     'name': names[j],
                     'form': forms[j],
                     'rate': rates[j],
-                    'area': area[j]
+                    'area': area[j],
+                    'times': times[j]
                 }
             )
             j += 1
