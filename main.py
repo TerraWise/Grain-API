@@ -29,20 +29,13 @@ if tool == "Extraction":
     zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip')
     planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
 
-    tmp_input_dir = tempfile.mkdtemp()
     try:
-        with ZipFile(zipfile) as zObject:
-            zObject.extractall(tmp_input_dir)
-        for csv in os.listdir(
-            os.path.join(os.curdir, tmp_input_dir)
-        ):
-            if 'questionnaire' in csv:
-                questionnaire_df = pd.read_csv(csv)
+        crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfile)
         
         cols_to_drop = [
             'ObjectID', 
             'GlobalID',
-            'CreationDate', 
+            'CreationDate',
             'Creator', 
             'EditDate', 
             'Editor',
@@ -52,20 +45,11 @@ if tool == "Extraction":
 
         questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
 
-        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0]).year
+        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0], '%d/%m/%Y %I:%M').year
 
-        questionnaire_df['Production Year'].iloc[0] = production_year
     except AttributeError:
         st.write("Haven't upload a zip of Survey123 output!")
 
-
-    try:
-        crops = questionnaire_df['What crops did you grow last year?'].iloc[0].split(',')
-        crop_specific_input = CropAssemble(tmp_input_dir, crops)
-    except ValueError:
-        st.write("Don't have an input")
-    except NameError:
-        pass
 
     # Number of crop in the questionnaire
     if st.button("Get your crop types", "CropType"):
@@ -88,7 +72,11 @@ if tool == "Extraction":
     with tab2:
         try:
             crop = st.radio('Choose the crop to view', crops)
-            st.write(crop_specific_input[crop])
+            input = st.radio('Choose an input to review', [
+                    'fert', 'fungicide', 'herbicide', 'insecticide', 'combination'
+                ]
+            )
+            st.dataframe(crop_specific_input[crop][input], hide_index=True)
         except NameError:
             st.markdown(':woman-gesturing-no:!:man-gesturing-no:!\
                         Quickly upload files to discover the secret lies here')
@@ -189,262 +177,274 @@ if tool == "Extraction":
 
 
         # A temporary output file
-        tmp_out = tempfile.mkdtemp()
+        with tempfile.TemporaryDirectory() as tmp_out:
 
 
-        # Write out the general info
-        FollowUp(questionnaire_df, tmp_out)
+            # Write out the general info
+            FollowUp(questionnaire_df, tmp_out)
 
 
-        # Crop specific info
-        LandManagement(questionnaire_df, crops, tmp_out)
+            # Crop specific info
+            LandManagement(questionnaire_df, crops, tmp_out)
 
 
-        # Write into the inventory sheet
-        wb = openpyxl.load_workbook("Inventory sheet v2 - Grain.xlsx")
+            # Write into the inventory sheet
+            wb = openpyxl.load_workbook("Inventory sheet v2 - Grain.xlsx")
 
-        # Fill in general info
-        ws = wb['General information']
+            # Fill in general info
+            ws = wb['General information']
 
-        # General information
-        # Client name
-        ws.cell(2, 2).value = questionnaire_df['Client Name'].iloc[0]
-        # Business name
-        ws.cell(3, 2).value = questionnaire_df['Business Name'].iloc[0]
-        # Client email
-        ws.cell(4, 2).value = questionnaire_df['Email Address'].iloc[0]
-        # Production year assessed
-        ws.cell(5, 2).value = production_year
+            # General information
+            # Client name
+            ws.cell(2, 2).value = questionnaire_df['Client Name'].iloc[0]
+            # Business name
+            ws.cell(3, 2).value = questionnaire_df['Business Name'].iloc[0]
+            # Client email
+            ws.cell(4, 2).value = questionnaire_df['Email Address'].iloc[0]
+            # Production year assessed
+            ws.cell(5, 2).value = production_year
 
-        # Location
-        # Property name
-        ws.cell(7, 2).value = questionnaire_df['Property Name'].iloc[0]
-        # Property address
-        ws.cell(8, 2).value = questionnaire_df['Property Addresss'].iloc[0]
-        # State
-        ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
-        # Farm map or paddock boundaries
-        ws.cell(10, 2).value = questionnaire_df['Farm map or paddock boundaries']
+            # Location
+            # Property name
+            ws.cell(7, 2).value = questionnaire_df['Property Name'].iloc[0]
+            # Property address
+            ws.cell(8, 2).value = questionnaire_df['Property Address'].iloc[0]
+            # State
+            ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
+            # Farm map or paddock boundaries
+            ws.cell(10, 2).value = questionnaire_df[' Farm map or paddock boundaries'].iloc[0]
 
-        # Climate
-        ## Rainfall & request ETo from DPIRD
-        try:
-            ws.cell(12, 2).value = questionnaire_df['Property average annual rainfall'].iloc[0]
-        except AttributeError:
-            ws.cell(12, 2).value = "Didn't provide rainfall data"
-        # Data from the weather_output/
-        SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
-        # Rainfall
-        ws.cell(13, 2).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
-        # Evapotranspiration
-        ws.cell(16, 2).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
-        ws.cell(17, 2).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
+            # Climate
+            ## Rainfall & request ETo from DPIRD
+            try:
+                ws.cell(12, 2).value = questionnaire_df['Property average annual rainfall'].iloc[0]
+            except AttributeError:
+                ws.cell(12, 2).value = "Didn't provide rainfall data"
+            # Data from the weather_output/
+            SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
+            # Rainfall
+            ws.cell(13, 2).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+            # Evapotranspiration
+            ws.cell(16, 2).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
+            ws.cell(17, 2).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
 
-        # Software
-        # Farm management software (Y/N)
-        ws.cell(19, 2).value = questionnaire_df[
-            'Do you use any Farm Management Practices software applications?'
-        ].iloc[0]
-        # List
-        if np.isnan(questionnaire_df['Please select the applications you use below']):
-            ws.cell(20, 2).value = questionnaire_df['Please specify'].iloc[0]
-        else:
-            ws.cell(20, 2).value = questionnaire_df[
-                'Please select the applications you use below'
-            ].iloc[0].split(',')
-        # Practices
-        # VRT
-        ws.cell(22, 2).value = questionnaire_df[
-            'Do you use variable rate technology (VRT) across your property ?'
-        ].iloc[0]
-
-        # Vegetation
-        # Planting post_1990 (Y/N)
-        ws.cell(25, 2).value = questionnaire_df[
-            'Have you planted any vegetation (tress) on-farm since 1990'
-        ].iloc[0]
-        # Planting mapped (Y/N)?
-        if ws.cell(25, 2).value == 'Yes':
-            ws.cell(26, 2).value = pd.read_csv(
-                    os.path.join(tmp_input_dir, 'veg_info_23.csv')
-                )[' Location of plantings'].iloc[0]
-
-        # Electricity
-        # Annual electricity use (KWh)
-        ws.cell(28, 2).value = questionnaire_df[
-            'What was your annual electricity consumption'
-        ].iloc[0]
-        # Renewable (Y/N)
-        ws.cell(29, 2).value = questionnaire_df[
-            'Did you use renewable energy?'
-        ].iloc[0]
-        # Renewable source
-        ws.cell(30, 2).value = questionnaire_df[
-            'What was the source(s) of this renewable energy?'
-        ].iloc[0].split(',')
-        # % renewable
-        ws.cell(31, 2).value = questionnaire_df[
-            'What percentage of the total electricity consumption came from this source?'
-        ].iloc[0]
-
-        # Fuel
-        fuels = ['diesel', 'petrol', 'LPG']
-        for i, fuel in enumerate(fuels):
-            # Begining (L)
-            ws.cell(33 + 3 * i, 2).value = questionnaire_df[
-                f'How much {fuel} did you have on hand at the start of the last calendar year?'
+            # Software
+            # Farm management software (Y/N)
+            ws.cell(19, 2).value = questionnaire_df[
+                'Do you use any Farm Management Practices software applications?'
             ].iloc[0]
-            # Purchased (L)
-            ws.cell(34 + 3 * i, 2).value = questionnaire_df[
-                f'How much {fuel} did you purchase throughout the year?'
-            ].iloc[0]
-            # End (l)
-            ws.cell(35 + 3 * i, 2).value = questionnaire_df[
-                f'How much {fuel} did you have on hand at the end of the last calendar year?'
+            # List
+            if isinstance(
+                questionnaire_df['Please select the applications you use below'].iloc[0],
+                str
+            ):
+                ws.cell(20, 2).value = questionnaire_df['Please specify'].iloc[0]
+            else:
+                ws.cell(20, 2).value = questionnaire_df[
+                    'Please select the applications you use below'
+                ].iloc[0].split(',')
+            # Practices
+            # VRT
+            ws.cell(22, 2).value = questionnaire_df[
+                'Do you use variable rate technology (VRT) across your property ?'
             ].iloc[0]
 
-        # Set the reference cell for offset below
-        CropType_Header = Cell.Cell(ws, 46, 1)
-        # Write into cells under corresponding crop types
-        # using the refrence cell
-        for i in range(12): # Number of crop type
-            row = CropType_Header.offset(i + 1)
-            for crop in crops:
-                if crop == row.value:
-                    # Area sown
-                    row.offset(column=1).value = questionnaire_df[f'What area was sown to {crop.lower()}?'].iloc[0]
-                    # Last year yield
-                    row.offset(column=2).value = questionnaire_df[f'What did your {crop.lower()} crop yield on average?'].iloc[0]
-                    # Burn (Y/N)
-                    row.offset(column=6).value = questionnaire_df[f'Did you burn any of your {crop.lower()} paddocks?'].iloc[0]
-                    # Area burnt
-                    row.offset(column=7).value = questionnaire_df[
-                        f'What was the total area of windrows burnt?'
-                    ].iloc[0] + questionnaire_df[
-                        f'What was the total area of paddocks burnt?'
-                    ].iloc[0] # Need update to specific crop type
+            # Vegetation
+            # Planting post_1990 (Y/N)
+            ws.cell(25, 2).value = questionnaire_df[
+                'Have you planted any vegetation (trees) on-farm since 1990'
+            ].iloc[0]
+            # Planting mapped (Y/N)?
+            if ws.cell(25, 2).value == 'Yes':
+                ws.cell(26, 2).value = veg_df[' Location of plantings'].iloc[0]
+
+            # Electricity
+            # Annual electricity use (KWh)
+            ws.cell(28, 2).value = questionnaire_df[
+                'What was your annual electricity consumption?'
+            ].iloc[0]
+            # Renewable (Y/N)
+            ws.cell(29, 2).value = questionnaire_df[
+                'Did you use renewable energy?'
+            ].iloc[0]
+            # Renewable source
+            ws.cell(30, 2).value = questionnaire_df[
+                'What was the source(s) of this renewable energy?'
+            ].iloc[0]
+            # % renewable
+            ws.cell(31, 2).value = questionnaire_df[
+                'What percentage of the total electricity consumption came from this source?'
+            ].iloc[0]
+
+            # Fuel
+            fuels = ['diesel', 'petrol', 'LPG']
+            for i, fuel in enumerate(fuels):
+                # Begining (L)
+                ws.cell(33 + 3 * i, 2).value = questionnaire_df[
+                    f'How much {fuel} did you have on hand at the start of the last calendar year?'
+                ].iloc[0]
+                # Purchased (L)
+                ws.cell(34 + 3 * i, 2).value = questionnaire_df[
+                    f'How much {fuel} did you purchase throughout the year?'
+                ].iloc[0]
+                # End (l)
+                ws.cell(35 + 3 * i, 2).value = questionnaire_df[
+                    f'How much {fuel} did you have on hand at the end of the last calendar year?'
+                ].iloc[0]
+
+            # Set the reference cell for offset below
+            CropType_Header = Cell.Cell(ws, 46, 1)
+            # Write into cells under corresponding crop types
+            # using the refrence cell
+            for i in range(12): # Number of crop type
+                row = CropType_Header.offset(i + 1)
+                for crop in crops:
+                    if crop == row.value:
+                        # Area sown
+                        row.offset(column=1).value = questionnaire_df[f'What area was sown to {crop.lower()}?'].iloc[0]
+                        # Last year yield
+                        row.offset(column=2).value = questionnaire_df[f'What did your {crop.lower()} crop yield on average?'].iloc[0]
+                        # Burn (Y/N)
+                        row.offset(column=6).value = questionnaire_df[f'Did you burn any of your {crop.lower()} paddocks?'].iloc[0]
+                        # Area burnt
+                        row.offset(column=7).value = questionnaire_df[
+                            f'What was the total area of windrows burnt?'
+                        ].iloc[0] + questionnaire_df[
+                            f'What was the total area of paddocks burnt?'
+                        ].iloc[0] # Need update to specific crop type
 
 
-        # Fertiliser
-        ws = wb['Fertiliser Applied - Input']
-        # List of fertiliser applied breaks down by
-        # crop type
-        ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, 'fertiliser')
-        # Loop to write into the worksheet
-        for i, crop in enumerate(crops):
-            crop_ferts = ferts[crop]
-            space = 0 # Spacing between products of the same crop
-            if i == 0: # Set the starting row
-                row = 2
-            if i > 0: # Starting row after first crop
-                previous_crop = crops[i-1]
-                row += len(ferts[previous_crop])
-            for fert in crop_ferts:
-                # Product name
-                ws.cell(row + space, 1).value = fert['name']
-                # Forms
-                ws.cell(row + space, 2).value = fert['form']
-                # Crop
-                ws.cell(row + space, 4).value = crop
-                # Rate
-                ws.cell(row + space, 6).value = fert['rate']
-                # Area
-                ws.cell(row + space, 7).value = fert['area']
-                space += 1
+            # Fertiliser
+            ws = wb['Fertiliser Applied - Input']
+            # List of fertiliser applied breaks down by
+            # crop type
+            ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, 'fert')
+            # Loop to write into the worksheet
+            for i, crop in enumerate(crops):
+                crop_ferts = ferts[crop]
+                space = 0 # Spacing between products of the same crop
+                if i == 0: # Set the starting row
+                    row = 2
+                if i > 0: # Starting row after first crop
+                    previous_crop = crops[i-1]
+                    row += len(ferts[previous_crop])
+                for fert in crop_ferts:
+                    # Product name
+                    ws.cell(row + space, 1).value = fert['name']
+                    # Forms
+                    ws.cell(row + space, 2).value = fert['form']
+                    # Crop
+                    ws.cell(row + space, 4).value = crop
+                    # Rate
+                    ws.cell(row + space, 6).value = fert['rate']
+                    # Area
+                    ws.cell(row + space, 7).value = fert['area']
+                    space += 1
 
 
-        # Chemical
-        ws = wb['Chemical Applied - Input']
-        # List of chemical applied break downs
-        # by crop
-        chems = ListFertChem(crop_specific_input, crops, questionnaire_df, 'chemical')
-        # Refer to fertiliser section
-        for i, crop in enumerate(crops):
-            crop_chems = chems[crop]
-            space = 0
-            if i == 0:
-                row = 2
-            if i > 0:
-                previous_crop = crops[i-1]
-                row += len(chems[previous_crop])
-            for chem in crop_chems:
-                # Product name
-                ws.cell(row + space, 1).value = chem['name']
-                # Forms
-                ws.cell(row + space, 2).value = chem['form']
-                # Crop
-                ws.cell(row + space, 16).value = crop
-                # Rate
-                ws.cell(row + space, 17).value = chem['rate']
-                # Area
-                ws.cell(row + space, 18).value = chem['area']
-                space += 1
+            # Chemical
+            ws = wb['Chemical Applied - Input']
+            # List of chemical applied break downs
+            # by crop
+            chemicals = ['fungicide', 'herbicide', 'insecticide', 'combination']
+            chems = {}
+            for chem in chemicals:
+                chems[chem] = ListFertChem(crop_specific_input, crops, questionnaire_df, chem)
+            # Refer to fertiliser section
+            for chem in chemicals:
+                chemical = chems[chem]
+                for i, crop in enumerate(crops):
+                    crop_chems = chemical[crop]
+                    space = 0
+                    if i == 0:
+                        row = 2
+                    if i > 0:
+                        previous_crop = crops[i-1]
+                        row += len(chemical[previous_crop])
+                    for chem in crop_chems:
+                        # Product name
+                        ws.cell(row + space, 1).value = chem['name']
+                        # Forms
+                        ws.cell(row + space, 2).value = chem['form']
+                        # Crop
+                        ws.cell(row + space, 16).value = crop
+                        # Rate
+                        ws.cell(row + space, 17).value = chem['rate']
+                        # Area
+                        ws.cell(row + space, 18).value = chem['area']
+                        space += 1
 
 
-        # Lime/gypsum
-        ws = wb['Lime Product - Input']
-        # List of products (lime/dolomite and gypsum) applied
-        # breaking down by crop type
-        products_applied = ToSoilAme(questionnaire_df, crops)
-        # Loop to write into the worksheet
-        for i, crop in enumerate(crops):
-            crop_products = products_applied[crop]
-            space = 0
-            if i == 0:
-                row = 2
-            if i > 0:
-                previous_crop = crops[i-1]
-                row += len(products_applied[previous_crop])
-            for product in products_applied:
-                # Soil amelioration
-                ws.cell(row + space, 1).value = product['name']
-                # Source
-                ws.cell(row + space, 2).value = product['source']
-                # Crop
-                ws.cell(row + space, 4).value = crop
-                # Rate
-                ws.cell(row + space, 5).value = product['rate']
-                # Area
-                ws.cell(row + space, 6).value = product['area']
+            # Lime/gypsum
+            ws = wb['Lime Product - Input']
+            # List of products (lime/dolomite and gypsum) applied
+            # breaking down by crop type
+            products_applied = ToSoilAme(questionnaire_df, crops)
+            # Loop to write into the worksheet
+            for i, crop in enumerate(crops):
+                crop_products = products_applied[crop]
+                space = 0
+                if i == 0:
+                    row = 2
+                if i > 0:
+                    previous_crop = crops[i-1]
+                    row += len(products_applied[previous_crop])
+                for product in products_applied:
+                    # Soil amelioration
+                    ws.cell(row + space, 1).value = product['name']
+                    # Source
+                    ws.cell(row + space, 2).value = product['source']
+                    # Crop
+                    ws.cell(row + space, 4).value = crop
+                    # Rate
+                    ws.cell(row + space, 5).value = product['rate']
+                    # Area
+                    ws.cell(row + space, 6).value = product['area']
 
-        #  Fuel usage - PW pathway will be in the future
-        ws = wb['Fuel Usage - Input']
+            #  Fuel usage - PW pathway will be in the future
+            ws = wb['Fuel Usage - Input']
 
-        # Vegetation
-        ws = wb['Vegetation - Input']
-        # A dictionary of vegetation planted
-        vegetation = ToVeg(questionnaire_df, tmp_input_dir)
-        # Write into the worksheet
-        for i in range(len(vegetation)):
-            # Region
-            ws.cell(2 + i, 1).value = vegetaion[i]['region']
-            # Species
-            ws.cell(2 + i, 2).value = vegetation[i]['species']
-            # Soil
-            ws.cell(2 + i, 4).value = vegetation[i]['soil']
-            # Area
-            ws.cell(2 + i, 5).value = vegetation[i]['area']
-            # Planted year
-            ws.cell(2 + i, 6).value = vegetation[i]['planted_year']
-            # Age
-            ws.cell(2 + i, 7).value = vegetation[i]['age']
-        
-        # Save the workbook
-        wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
-        
-        # Create a zip to save follow ups question
-        # and workbook
-        shutil.make_archive("Question_Extract", "zip", tmp_out)
+            # Vegetation
+            ws = wb['Vegetation - Input']
+            # A dictionary of vegetation planted
+            vegetation = ToVeg(veg_df, planting_shapes)
+            # Write into the worksheet
+            try:
+                for i in range(len(vegetation)):
+                    # Region
+                    ws.cell(2 + i, 1).value = vegetation[i]['region']
+                    # Species
+                    ws.cell(2 + i, 2).value = vegetation[i]['species']
+                    # Soil
+                    ws.cell(2 + i, 4).value = vegetation[i]['soil']
+                    # Area
+                    ws.cell(2 + i, 5).value = vegetation[i]['area']
+                    # Planted year
+                    ws.cell(2 + i, 6).value = vegetation[i]['planted_year']
+                    # Age
+                    ws.cell(2 + i, 7).value = vegetation[i]['age']
+            except TypeError:
+                ws.cell(2, 1).value = 'No planting'
+                ws.cell(2, 2).value = 'No planting'
+                ws.cell(2, 4).value = 'No planting'
+                ws.cell(2, 5).value = 'No planting'
+                ws.cell(2, 6).value = 'No planting'
+                ws.cell(2, 7).value = 'No planting'
+            
+            # Save the workbook
+            wb.save(os.path.join(tmp_out, 'Inventory_Sheet.xlsx'))
+            
+            # Create a zip to save follow ups question
+            # and workbook
+            shutil.make_archive("Question_Extract", "zip", tmp_out)
 
-        # Name the file by the first property name
-        zip_name = questionnaire_df.loc[0, 'Property name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
+            # Name the file by the first property name
+            zip_name = questionnaire_df.loc[0, 'Property name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
-        with open("Question_Extract.zip", "rb") as f:
-            st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
+            with open("Question_Extract.zip", "rb") as f:
+                st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
         
         # Remove the unused folder
-        shutil.rmtree(tmp_input_dir)
-        shutil.rmtree(tmp_out)
         shutil.rmtree(os.path.join(cwd, 'weather_output'))
 else:
     st.header("Send to AIA")
