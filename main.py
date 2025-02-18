@@ -508,32 +508,35 @@ else:
             prod_sys = 'Non-irrigated crop'
 
         # params for the API
-        for i in range(len(selected_crop)): # For one or multiple crops
-            datas['crops'].append({
-                'type': Crop[selected_crop[i]]['Crop type'],
-                'state': 'wa_sw',
-                'productionSystem': prod_sys,
-                'averageGrainYield': float(Crop[selected_crop[i]]['Average grain yield (t/ha)']),
-                'areaSown': float(Crop[selected_crop[i]]['Area sown (ha)']),
-                'nonUreaNitrogen': float(Crop[selected_crop[i]]['Non-Urea Nitrogen Applied (kg N/ha)']),
-                'ureaApplication': float(Crop[selected_crop[i]]['Urea Applied (kg Urea/ha)']),
-                'ureaAmmoniumNitrate': float(Crop[selected_crop[i]]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
-                'phosphorusApplication': float(Crop[selected_crop[i]]['Phosphorus Applied (kg P/ha)']),
-                'potassiumApplication': float(Crop[selected_crop[i]]['Potassium Applied (kg K/ha)']),
-                'sulfurApplication': float(Crop[selected_crop[i]]['Sulfur Applied (kg S/ha)']),
-                'rainfallAbove600': bool(rain_over),
-                'fractionOfAnnualCropBurnt': float(Crop[selected_crop[i]]['Fraction of the annual production of crop that is burnt (%)']),
-                'herbicideUse': float(Crop[selected_crop[i]]['General Herbicide/Pesticide use (kg a.i. per crop)']),
-                'glyphosateOtherHerbicideUse': float(Crop[selected_crop[i]]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
-                'electricityAllocation': float(Crop[selected_crop[i]]['electricityAllocation']),
-                'limestone': float(Crop[selected_crop[i]]['Mass of Lime Applied (total tonnes)']),
-                'limestoneFraction': float(Crop[selected_crop[i]]['Fraction of Lime/Dolomite']),
-                'dieselUse': float(Crop[selected_crop[i]]['Annual Diesel Consumption (litres/year)']),
-                'petrolUse': float(Crop[selected_crop[i]]['Annual Pertol Use (litres/year)']),
-                'lpg': 0
-            })
-            if np.isnan(Crop[selected_crop[i]]['Area (ha)']):
-                datas['vegetation'].append({
+        for i in selected_crop: # For one or multiple crops
+            datas['crops'].append(
+                {
+                    'type': Crop[i]['Crop type'],
+                    'state': 'wa_sw',
+                    'productionSystem': prod_sys,
+                    'averageGrainYield': float(Crop[i]['Average grain yield (t/ha)']),
+                    'areaSown': float(Crop[i]['Area sown (ha)']),
+                    'nonUreaNitrogen': float(Crop[i]['Non-Urea Nitrogen Applied (kg N/ha)']),
+                    'ureaApplication': float(Crop[i]['Urea Applied (kg Urea/ha)']),
+                    'ureaAmmoniumNitrate': float(Crop[i]['Urea-Ammonium Nitrate (UAN) (kg product/ha)']),
+                    'phosphorusApplication': float(Crop[i]['Phosphorus Applied (kg P/ha)']),
+                    'potassiumApplication': float(Crop[i]['Potassium Applied (kg K/ha)']),
+                    'sulfurApplication': float(Crop[i]['Sulfur Applied (kg S/ha)']),
+                    'rainfallAbove600': bool(rain_over),
+                    'fractionOfAnnualCropBurnt': float(Crop[i]['Fraction of the annual production of crop that is burnt (%)']),
+                    'herbicideUse': float(Crop[i]['General Herbicide/Pesticide use (kg a.i. per crop)']),
+                    'glyphosateOtherHerbicideUse': float(Crop[i]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
+                    'electricityAllocation': float(Crop[i]['electricityAllocation']),
+                    'limestone': float(Crop[i]['Mass of Lime Applied (total tonnes)']),
+                    'limestoneFraction': float(Crop[i]['Fraction of Lime/Dolomite']),
+                    'dieselUse': float(Crop[i]['Annual Diesel Consumption (litres/year)']),
+                    'petrolUse': float(Crop[i]['Annual Pertol Use (litres/year)']),
+                    'lpg': 0
+                }
+            )
+            if np.isnan(Crop[i]['Area (ha)']):
+                datas['vegetation'].append(
+                    {
                         'vegetation': {
                             'region': 'South Coastal',
                             'treeSpecies': 'No tree data available',
@@ -542,20 +545,21 @@ else:
                             'age': 0
                         },
                         'allocationToCrops': [0]
-                    })
+                    }
+                )
             else:
-                datas['vegetation'][i].append({
+                datas['vegetation'].append(
+                    {
                         'vegetation': {
-                            'region': Crop[selected_crop]['Region'],
-                            'treeSpecies': Crop[selected_crop]['Tree Species'],
-                            'soil': Crop[selected_crop]['Soil'],
-                            'area': float(Crop[selected_crop]['Area (ha)']),
-                            'age': float(Crop[selected_crop]['Age (yrs)'])
+                            'region': Crop[i]['Region'],
+                            'treeSpecies': Crop[i]['Tree Species'],
+                            'soil': Crop[i]['Soil'],
+                            'area': float(Crop[i]['Area (ha)']),
+                            'age': float(Crop[i]['Age (yrs)'])
                         },
-                        'allocationToCrops': [
-                            float(Crop[selected_crop]['Allocation to crop'])
-                            ]
-                    })
+                        'allocationToCrops': [0]*(len(selected_crop)-1) + [float(Crop[i]['Allocation to crop'])]
+                    }
+                )
 
         # Set the header
         Headers = {
@@ -654,29 +658,25 @@ else:
             by_crop.append(df)
 
         # Temp folder to save ouput
-        out_dir = tempfile.mkdtemp(dir=cwd)
-        
-        if len(by_crop) > 1:
-            for i in range(len(by_crop)):
-                pd.DataFrame(
-                    by_crop[i]
-                ).to_csv(
-                    os.path.join(out_dir, f'{desired_crop[i]}_GAFF.csv'), index=False
-                )
+        with tempfile.TemporaryDirectory() as out_dir:
+            if len(by_crop) > 1:
+                for i in range(len(by_crop)):
+                    pd.DataFrame(
+                        by_crop[i]
+                    ).to_csv(
+                        os.path.join(out_dir, f'{desired_crop[i]}_GAFF.csv'), index=False
+                    )
 
-        # Create a df to export from the metrics list
-        out = pd.DataFrame(metrics_list)
+            # Create a df to export from the metrics list
+            out = pd.DataFrame(metrics_list)
 
-        out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
+            out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
 
-        # Create a zip to save follow ups question
-        # and workbook
-        shutil.make_archive("GAFF_Tool_output", "zip", out_dir)
+            # Create a zip to save follow ups question
+            # and workbook
+            shutil.make_archive("GAFF_Tool_output", "zip", out_dir)
 
-        zip_name = filename + '_' + str(dt.today().strftime('%d-%m-%Y'))
+            zip_name = filename + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
-        with open("GAFF_Tool_output.zip", "rb") as f:
-            st.download_button("Download the result from AIA's API", f, file_name=zip_name+".zip")
-
-        # Remove the temp folder
-        shutil.rmtree(out_dir)
+            with open("GAFF_Tool_output.zip", "rb") as f:
+                st.download_button("Download the result from AIA's API", f, file_name=zip_name+".zip")
