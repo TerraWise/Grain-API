@@ -210,7 +210,12 @@ if tool == "Extraction":
             # Property address
             ws.cell(8, 2).value = questionnaire_df['Property Address'].iloc[0]
             # State
-            ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
+            if questionnaire_df['State'].iloc[0] == 'nw_western_australia':
+                ws.cell(9, 2).value = 'wa_nw'
+            elif questionnaire_df['State'].iloc[0] == 'sw_western_australia':
+                ws.cell(9, 2).value = 'wa_nw'
+            else:
+                ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
             # Farm map or paddock boundaries
             ws.cell(10, 2).value = questionnaire_df[' Farm map or paddock boundaries'].iloc[0]
 
