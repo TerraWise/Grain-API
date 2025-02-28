@@ -1,9 +1,7 @@
 __pycache__/
-*.csv
-*.xlsx
-aiaghg-terrawise.pem
-carbon-calculator-integration.key
-*.zip
+input/*/
+credential/
 Export feature/
 DPIRD-weather/
 *.json
+test.ipynb
