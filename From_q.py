@@ -243,7 +243,7 @@ def ToVeg(veg_df, planting_shapes) -> dict:
 
 # Helper function for region
 def get_planting_region(shapes):
-    BOM_rainfall_gdf = gpd.read_file('BOM_RF_Region.zip')
+    BOM_rainfall_gdf = gpd.read_file('input/BOM_RF_Region.zip')
     gdf = read_shapes(shapes)
 
     BOM_rainfall_gdf = BOM_rainfall_gdf.to_crs('WGS84')
