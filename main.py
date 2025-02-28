@@ -26,7 +26,7 @@ tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'A
 if tool == "Extraction":
     st.header("Questionnaire extraction")
 
-    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip')
+    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip', accept_multiple_files=True)
     planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
 
     try:
@@ -189,7 +189,9 @@ if tool == "Extraction":
 
 
             # Write into the inventory sheet
-            wb = openpyxl.load_workbook("Inventory sheet v2 - Grain.xlsx")
+            wb = openpyxl.load_workbook(
+                os.path.join('input', "Inventory sheet v2 - Grain.xlsx")
+            )
 
             # Fill in general info
             ws = wb['General information']
@@ -482,7 +484,7 @@ else:
     if st.button('Run', key="AIA_API"):
 
         # General info
-        loc, rain_over, prod_sys = GenInfo(ex_file)
+        loc, rain_over = GenInfo(ex_file)
 
         # params json
         datas = {
@@ -509,8 +511,7 @@ else:
 
         # Default the production system
         # to 'Non-irrigated crop'
-        if prod_sys == None:
-            prod_sys = 'Non-irrigated crop'
+        prod_sys = 'Non-irrigated crop'
 
         # params for the API
         for i in selected_crop: # For one or multiple crops
