@@ -7,30 +7,28 @@ from zipfile import ZipFile
 import streamlit as st
 
 
-def FromTheTop(zipfile: str):
-    with tempfile.TemporaryDirectory() as td:
-        with ZipFile(zipfile) as zObject:
-            zObject.extractall(td)
-        unzip_dir = (
-            zipfile
-            .name
-            .split('.')[0]
-        )
-        filepath = os.path.join(td, unzip_dir)
-        for csv in os.listdir(filepath):
-            if 'questionnaire' in csv.lower():
-                questionnaire_df = pd.read_csv(
-                    os.path.join(filepath, csv)
+def FromTheTop(zipfiles: list):
+    for zipfile in zipfiles:
+        with tempfile.TemporaryDirectory() as td:
+            with ZipFile(zipfile) as zObject:
+                zObject.extractall(td)
+            path = os.path.join(
+                td, 
+                zipfile.name[:-4]
                 )
-        crops = questionnaire_df['What crops did you grow?'].iloc[0].split(',')
-        crop_specific_input = CropAssemble(filepath, crops)
-        if questionnaire_df[
-                'Have you planted any vegetation (trees) on-farm since 1990'
-            ].iloc[0] == 'Yes':
-            veg_df = VegetationDf(filepath)
+            file_number = len(os.listdir(path))
+            if file_number > 2:
+                for csv in os.listdir(path):
+                    if 'questionnaire' in csv.lower():
+                        questionnaire_df = pd.read_csv(
+                            os.path.join(path, csv)
+                        )
+                crops = questionnaire_df['What crops did you grow?'].iloc[0].split(',')
+                crop_specific_input = CropAssemble(path, crops)
+            else:
+                veg_df = VegetationDf(path)
     return crops, crop_specific_input, questionnaire_df, veg_df
 
-# Join crop specific dataframe
 def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
     cols_to_drop = [
         'ObjectID', 
@@ -53,10 +51,9 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
                 )
     return crop_specific_input
 
-
 def VegetationDf(tmp_input_dir: str) -> pd.DataFrame:
     for csv in os.listdir(tmp_input_dir):
-        if 'veg' in csv:
+        if 'planting' in csv:
             return pd.read_csv(
                 os.path.join(tmp_input_dir, csv)
             )
