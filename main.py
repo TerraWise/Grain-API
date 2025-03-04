@@ -26,11 +26,10 @@ tool = st.sidebar.radio("Select which tools you want to run:", ['Extraction', 'A
 if tool == "Extraction":
     st.header("Questionnaire extraction")
 
-    zipfile = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip', accept_multiple_files=True)
-    planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
+    zipfiles = st.file_uploader("Upload your questionnaire form as a csv format:", 'zip', accept_multiple_files=True)
 
     try:
-        crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfile)
+        crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfiles)
         
         cols_to_drop = [
             'ObjectID', 
@@ -45,10 +44,14 @@ if tool == "Extraction":
 
         questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
 
-        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0], '%d/%m/%Y %I:%M').year
+        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0], '%d/%m/%Y %I:%M:%S %p').year
 
     except AttributeError:
         st.write("Haven't upload a zip of Survey123 output!")
+    except UnboundLocalError:
+        st.write("Haven't upload a zip of Survey123 output!")
+
+    planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
 
 
     # Number of crop in the questionnaire
@@ -215,11 +218,11 @@ if tool == "Extraction":
             if questionnaire_df['State'].iloc[0] == 'nw_western_australia':
                 ws.cell(9, 2).value = 'wa_nw'
             elif questionnaire_df['State'].iloc[0] == 'sw_western_australia':
-                ws.cell(9, 2).value = 'wa_nw'
+                ws.cell(9, 2).value = 'wa_sw'
             else:
                 ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
             # Farm map or paddock boundaries
-            ws.cell(10, 2).value = questionnaire_df[' Farm map or paddock boundaries'].iloc[0]
+            ws.cell(10, 2).value = questionnaire_df['Farm map or paddock boundaries'].iloc[0]
 
             # Climate
             ## Rainfall & request ETo from DPIRD
@@ -458,7 +461,7 @@ else:
 
     st.subheader("Disclaimer")
     st.write(
-        "Before uploading the excel file, please open and save it so the data can be \nupdated accordingly"
+        "Before uploading the excel file, please open and save it so the data can be\nupdated accordingly"
     )
 
     ex_file = st.file_uploader("Upload your inventory sheet:",'xlsx')
