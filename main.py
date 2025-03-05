@@ -357,6 +357,8 @@ if tool == "Extraction":
                     ws.cell(row + space, 6).value = fert['rate']
                     # Area
                     ws.cell(row + space, 7).value = fert['area']
+                    # Times
+                    ws.cell(row + space, 8).value = fert['times']
                     space += 1
 
 
@@ -390,6 +392,8 @@ if tool == "Extraction":
                         ws.cell(row + space, 17).value = chem['rate']
                         # Area
                         ws.cell(row + space, 18).value = chem['area']
+                        # Times
+                        ws.cell(row + space, 19).value = chem['times']
                         space += 1
 
 
