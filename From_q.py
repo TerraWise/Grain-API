@@ -118,19 +118,24 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                 col_lower = col.lower()
                 if which == 'fert':
                     if 'npk' in col_lower:
-                        if isinstance(df[col].iloc[i], float):
+                        name = df[col].iloc[i].split('_')
+                        if name == 'other':
                             name = df[f'specify_fert_{crop.lower()}'].iloc[i].split('_')
                             brand = ' '.join(name)
                             names.append(brand.capitalize())
                         else:
-                            name = df[col].iloc[i].split('_')
                             brand = ' '.join(name)
                             names.append(brand.capitalize())  
                 else:
                     if 'applied' in col_lower:
                         name = df[col].iloc[i].split('_')
-                        brand = ' '.join(name)
-                        names.append(brand.capitalize())
+                        if name == 'other':
+                            name = df[f'specify_{which}_{crop.lower()}'].iloc[i].split('_')
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())
+                        else:
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())  
                 if 'form' in col_lower:
                     forms.append(df[col].iloc[i])
                 try:
