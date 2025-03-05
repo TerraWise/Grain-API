@@ -30,6 +30,8 @@ if tool == "Extraction":
 
     try:
         crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfiles)
+
+        print(crops)
         
         cols_to_drop = [
             'ObjectID', 
@@ -44,20 +46,21 @@ if tool == "Extraction":
 
         questionnaire_df = questionnaire_df.drop(cols_to_drop, axis=1)
 
-        production_year = dt.strptime(questionnaire_df['Production Year'].iloc[0], '%d/%m/%Y %I:%M:%S %p').year
+        try:
+            production_year = dt.strptime(questionnaire_df['production_year'].iloc[0], '%d/%m/%Y %I:%M:%S %p').year
+        except TypeError:
+            production_year = dt(questionnaire_df['production_year'].iloc[0], 1, 1).year
 
     except AttributeError:
-        st.write("Haven't upload a zip of Survey123 output!")
+        st.write("Haven't uploaded a zip of Survey123 production data!")
     except UnboundLocalError:
-        st.write("Haven't upload a zip of Survey123 output!")
+        st.write("Haven't uploaded a zip of Survey123 production data!")
 
     planting_shapes = st.file_uploader('Upload your planting shapefile (zip or all of it)', accept_multiple_files=True, key='PlantingShape')
-
 
     # Number of crop in the questionnaire
     if st.button("Get your crop types", "CropType"):
         # Read in the form as csv
-
         st.write(crops)
 
     tab1, tab2, tab3 = st.tabs(['Check questionnaire', 'Check fert/chem input', "Get weather from DPIRD's API"])
@@ -76,7 +79,7 @@ if tool == "Extraction":
         try:
             crop = st.radio('Choose the crop to view', crops)
             input = st.radio('Choose an input to review', [
-                    'fert', 'fungicide', 'herbicide', 'insecticide', 'combination'
+                    'fert', 'fungicide', 'herbicide', 'insecticide', 'chem'
                 ]
             )
             st.dataframe(crop_specific_input[crop][input], hide_index=True)
@@ -161,21 +164,20 @@ if tool == "Extraction":
 
             rain, eto_short, eto_tall = annual_summary(daily_df)
 
-            with tempfile.TemporaryDirectory() as td:
-                # Save the annual weather data as csv without indexes
-                pd.DataFrame(
-                {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
-                ).to_csv(
-                    os.path.join('weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'), index=False
-                    )
-                
-                # Put everything into a zip file
-                shutil.make_archive("Weather_data", "zip", 'weather_output')
+            # Save the annual weather data as csv without indexes
+            pd.DataFrame(
+            {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
+            ).to_csv(
+                os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'), index=False
+                )
+            
+            # Put everything into a zip file
+            shutil.make_archive("Weather_data", "zip", os.path.join(cwd, 'weather_output'))
 
-                zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
-                # Download the zip file
-                with open("Weather_data.zip", "rb") as f:
-                    st.download_button('Download weather data?', f, file_name=zip_name+".zip")
+            zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
+            # Download the zip file
+            with open("Weather_data.zip", "rb") as f:
+                st.download_button('Download weather data?', f, file_name=zip_name+".zip")
 
     if st.button("Start the extraction process", key="Extraction"):
 
@@ -202,33 +204,33 @@ if tool == "Extraction":
 
             # General information
             # Client name
-            ws.cell(2, 2).value = questionnaire_df['Client Name'].iloc[0]
+            ws.cell(2, 2).value = questionnaire_df['client_name'].iloc[0]
             # Business name
-            ws.cell(3, 2).value = questionnaire_df['Business Name'].iloc[0]
+            ws.cell(3, 2).value = questionnaire_df['business_name'].iloc[0]
             # Client email
-            ws.cell(4, 2).value = questionnaire_df['Email Address'].iloc[0]
+            ws.cell(4, 2).value = questionnaire_df['email'].iloc[0]
             # Production year assessed
             ws.cell(5, 2).value = production_year
 
             # Location
             # Property name
-            ws.cell(7, 2).value = questionnaire_df['Property Name'].iloc[0]
+            ws.cell(7, 2).value = questionnaire_df['property_name'].iloc[0]
             # Property address
-            ws.cell(8, 2).value = questionnaire_df['Property Address'].iloc[0]
+            ws.cell(8, 2).value = questionnaire_df['property_address'].iloc[0]
             # State
-            if questionnaire_df['State'].iloc[0] == 'nw_western_australia':
+            if questionnaire_df['state'].iloc[0] == 'nw_western_australia':
                 ws.cell(9, 2).value = 'wa_nw'
-            elif questionnaire_df['State'].iloc[0] == 'sw_western_australia':
+            elif questionnaire_df['state'].iloc[0] == 'sw_western_australia':
                 ws.cell(9, 2).value = 'wa_sw'
             else:
-                ws.cell(9, 2).value = questionnaire_df['State'].iloc[0]
+                ws.cell(9, 2).value = questionnaire_df['state'].iloc[0]
             # Farm map or paddock boundaries
-            ws.cell(10, 2).value = questionnaire_df['Farm map or paddock boundaries'].iloc[0]
+            ws.cell(10, 2).value = questionnaire_df['upload_email_draw'].iloc[0]
 
             # Climate
             ## Rainfall & request ETo from DPIRD
             try:
-                ws.cell(12, 2).value = questionnaire_df['Property average annual rainfall'].iloc[0]
+                ws.cell(12, 2).value = questionnaire_df['property_av_annual_rainfall'].iloc[0]
             except AttributeError:
                 ws.cell(12, 2).value = "Didn't provide rainfall data"
             # Data from the weather_output/
@@ -237,7 +239,7 @@ if tool == "Extraction":
             ws.cell(13, 2).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
             # Evapotranspiration
             ws.cell(16, 2).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
-            ws.cell(17, 2).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
+            ws.cell(16, 3).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
 
             # Software
             # Farm management software (Y/N)
@@ -256,18 +258,19 @@ if tool == "Extraction":
                 ].iloc[0].split(',')
             # Practices
             # VRT
-            ws.cell(22, 2).value = questionnaire_df[
+            strings = questionnaire_df[
                 'Do you use variable rate technology (VRT) across your property ?'
-            ].iloc[0]
+            ].iloc[0].split('_')
+            ws.cell(22, 2).value = ' '.join(strings)
 
             # Vegetation
             # Planting post_1990 (Y/N)
-            ws.cell(25, 2).value = questionnaire_df[
-                'Have you planted any vegetation (trees) on-farm since 1990'
-            ].iloc[0]
-            # Planting mapped (Y/N)?
-            if ws.cell(25, 2).value == 'Yes':
+            try:
                 ws.cell(26, 2).value = veg_df[' Location of plantings'].iloc[0]
+                ws.cell(25, 2).value = "Y"
+            except TypeError:
+                ws.cell(25, 2).value = 'N'
+                ws.cell(26, 2).value = 'N'
 
             # Electricity
             # Annual electricity use (KWh)
@@ -292,7 +295,7 @@ if tool == "Extraction":
             for i, fuel in enumerate(fuels):
                 # Begining (L)
                 ws.cell(33 + 3 * i, 2).value = questionnaire_df[
-                    f'How much {fuel} did you have on hand at the start of the last calendar year?'
+                    f'How much {fuel} did you have on hand at the start of the last calender year?'
                 ].iloc[0]
                 # Purchased (L)
                 ws.cell(34 + 3 * i, 2).value = questionnaire_df[
@@ -300,7 +303,7 @@ if tool == "Extraction":
                 ].iloc[0]
                 # End (l)
                 ws.cell(35 + 3 * i, 2).value = questionnaire_df[
-                    f'How much {fuel} did you have on hand at the end of the last calendar year?'
+                    f'How much {fuel} did you have on hand at the end of the last calender year?'
                 ].iloc[0]
 
             # Set the reference cell for offset below
@@ -308,21 +311,24 @@ if tool == "Extraction":
             # Write into cells under corresponding crop types
             # using the refrence cell
             for i in range(12): # Number of crop type
-                row = CropType_Header.offset(i + 1)
+                croptype = CropType_Header.offset(i + 1)
                 for crop in crops:
-                    if crop == row.value:
+                    if crop == croptype.value.lower():
                         # Area sown
-                        row.offset(column=1).value = questionnaire_df[f'What area was sown to {crop.lower()}?'].iloc[0]
+                        croptype.offset(column=1).value = questionnaire_df[f'area_sown_{crop.lower()}'].iloc[0]
                         # Last year yield
-                        row.offset(column=2).value = questionnaire_df[f'What did your {crop.lower()} crop yield on average?'].iloc[0]
+                        croptype.offset(column=2).value = questionnaire_df[f'av_yield_{crop.lower()}'].iloc[0]
                         # Burn (Y/N)
-                        row.offset(column=6).value = questionnaire_df[f'Did you burn any of your {crop.lower()} paddocks?'].iloc[0]
+                        croptype.offset(column=5).value = questionnaire_df[f'paddocks_burnt_{crop.lower()}'].iloc[0]
                         # Area burnt
-                        row.offset(column=7).value = questionnaire_df[
-                            f'What was the total area of windrows burnt?'
-                        ].iloc[0] + questionnaire_df[
-                            f'What was the total area of paddocks burnt?'
-                        ].iloc[0] # Need update to specific crop type
+                        if croptype.offset(column=5).value == 'yes':
+                            croptype.offset(column=6).value = questionnaire_df[
+                                f'windrow_burnt_{crop.lower()}'
+                            ].iloc[0] + questionnaire_df[
+                                f'area_burnt_{crop.lower()}'
+                            ].iloc[0] # Need update to specific crop type
+                        else:
+                            croptype.offset(column=6).value = 0
 
 
             # Fertiliser
@@ -330,6 +336,7 @@ if tool == "Extraction":
             # List of fertiliser applied breaks down by
             # crop type
             ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, 'fert')
+            st.write(ferts)
             # Loop to write into the worksheet
             for i, crop in enumerate(crops):
                 crop_ferts = ferts[crop]
@@ -357,7 +364,7 @@ if tool == "Extraction":
             ws = wb['Chemical Applied - Input']
             # List of chemical applied break downs
             # by crop
-            chemicals = ['fungicide', 'herbicide', 'insecticide', 'combination']
+            chemicals = ['fungicide', 'herbicide', 'insecticide', 'chem']
             chems = {}
             for chem in chemicals:
                 chems[chem] = ListFertChem(crop_specific_input, crops, questionnaire_df, chem)
@@ -400,7 +407,7 @@ if tool == "Extraction":
                 if i > 0:
                     previous_crop = crops[i-1]
                     row += len(products_applied[previous_crop])
-                for product in products_applied:
+                for product in crop_products:
                     # Soil amelioration
                     ws.cell(row + space, 1).value = product['name']
                     # Source
@@ -450,13 +457,18 @@ if tool == "Extraction":
             shutil.make_archive("Question_Extract", "zip", tmp_out)
 
             # Name the file by the first property name
-            zip_name = questionnaire_df.loc[0, 'Property name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
+            zip_name = questionnaire_df.loc[0, 'property_name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
             with open("Question_Extract.zip", "rb") as f:
                 st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
         
         # Remove the unused folder
         shutil.rmtree(os.path.join(cwd, 'weather_output'))
+        files = [
+            os.path.join(cwd, 'Question_Extract.zip'),
+            os.path.join(cwd, 'Weather_data.zip')
+        ]
+        RemoveFiles(files)
 else:
     st.header("Send to AIA")
 
