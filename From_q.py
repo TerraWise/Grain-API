@@ -40,15 +40,27 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
             else:
                 canola_in_csv = '_'.join(input[2:4])
             if canola_in_csv == crop:
-                crop_specific_input[crop][input[0]] = (
-                    pd.read_csv(os.path.join(tmp_input_dir, csv))
-                    .drop(cols_to_drop, axis=1)
-                )
+                if 'chem' in input:
+                    crop_specific_input[crop]['_'.join(input[:2])] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+                else:
+                    crop_specific_input[crop][input[0]] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
             elif not 'gm_canola' in crop and crop in csv:
-                crop_specific_input[crop][input[0]] = (
-                    pd.read_csv(os.path.join(tmp_input_dir, csv))
-                    .drop(cols_to_drop, axis=1)
-                )
+                if 'chem' in input:
+                    crop_specific_input[crop]['_'.join(input[:2])] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+                else:
+                    crop_specific_input[crop][input[0]] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
     return crop_specific_input
 
 def VegetationDf(tmp_input_dir: str) -> pd.DataFrame:
