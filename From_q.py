@@ -95,7 +95,7 @@ def FollowUp(df: pd.DataFrame, dir: str):
         info['Variable rate'] = "Don't know. Need to ask again."
     if df['Do you engage any on-farm contractor services during the year?'].iloc[0] == 'yes':
         try:
-            info['Contractor activities'] = df['Select all that apply']
+            info['Contractor activities'] = df['Select all that apply'][0].split(',')
         except AttributeError:
             info['Contractor activities'] = "Yes engagement with contractor but didn't select the activities"
     else:
