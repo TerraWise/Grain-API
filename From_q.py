@@ -139,7 +139,7 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                 else:
                     if 'applied' in col_lower:
                         name = df[col].iloc[i].split('_')
-                        if name == 'other':
+                        if ''.join(name) == 'other':
                             name = df[f'specify_{which}_{crop.lower()}'].iloc[i].split('_')
                             brand = ' '.join(name)
                             names.append(brand.capitalize())
@@ -149,13 +149,13 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                 if 'form' in col_lower:
                     forms.append(df[col].iloc[i])
                 try:
-                    if forms[i] == 'liquid':
-                        rates.append(df[f'{which}_rate_l_{crop}'].iloc[i])
+                    if forms[i] == 'liquid' and 'rate_l' in col_lower:
+                        rates.append(df[col].iloc[i])
+                    elif forms[i] == 'granular' and 'rate_kg' in col_lower:
+                        rates.append(df[f'{which}_rate_kg_{crop}'].iloc[i])
                 except IndexError:
                     continue
-                else:
-                    rates.append(df[f'{which}_rate_kg_{crop}'].iloc[i])
-                if 'hectares' in col_lower and 'spec' not in col_lower:
+                if 'hectares' in col_lower:
                     if df[col].iloc[i] == 'whole':
                         area.append(whole_area)
                     elif 'spec' in col_lower:
@@ -166,8 +166,6 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                     times.append(df[col].iloc[i])
         j = 0
         while j < len(names):
-            st.write(f'Progressing: {j+1} out of {len(names)}')
-            st.write(f'Product: {names[j]}\nRate: {rates[j]}\nArea: {area[j]}\nTimes: {times[j]}')
             products.append(
                 {
                     'name': names[j],
