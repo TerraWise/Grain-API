@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import geopandas as gpd
 from zipfile import ZipFile
+import streamlit as st
 
 
 def FromTheTop(zipfiles: list):
@@ -35,9 +36,18 @@ def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
     for crop in crops:
         crop_specific_input[crop] = {}
         for csv in os.listdir(tmp_input_dir):
-            input = csv.split('_')[0]
-            if crop in csv and not 'machine_passes' in csv:
-                crop_specific_input[crop][input] = (
+            input = csv.split('_')
+            if input[0] != 'chem' and input[0] != 'machine':
+                canola_in_csv = '_'.join(input[1:3])
+            else:
+                canola_in_csv = '_'.join(input[2:4])
+            if canola_in_csv == crop:
+                crop_specific_input[crop][input[0]] = (
+                    pd.read_csv(os.path.join(tmp_input_dir, csv))
+                    .drop(cols_to_drop, axis=1)
+                )
+            elif not 'gm_canola' in crop and crop in csv:
+                crop_specific_input[crop][input[0]] = (
                     pd.read_csv(os.path.join(tmp_input_dir, csv))
                     .drop(cols_to_drop, axis=1)
                 )
@@ -73,7 +83,7 @@ def FollowUp(df: pd.DataFrame, dir: str):
         info['Variable rate'] = df['Do you use variable rate technology (VRT) across your property ?'].iloc[0]
     except AttributeError:
         info['Variable rate'] = "Don't know. Need to ask again."
-    if df['Do you engage any on-farm contractors used services during the year?'].iloc[0] == 'yes':
+    if df['Do you engage any on-farm contractor services during the year?'].iloc[0] == 'yes':
         try:
             info['Contractor activities'] = df['Select all that apply']
         except AttributeError:
@@ -148,16 +158,16 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                 if 'hectares' in col_lower and 'spec' not in col_lower:
                     if df[col].iloc[i] == 'whole':
                         area.append(whole_area)
-                    else:
+                    elif 'spec' in col_lower:
                         area.append(
-                            df[
-                                f'{which}_hectares_spec_{crop}'
-                            ].iloc[i]
+                            df[col].iloc[i]
                         )
                 if 'times' in col_lower:
                     times.append(df[col].iloc[i])
         j = 0
         while j < len(names):
+            st.write(f'Progressing: {j+1} out of {len(names)}')
+            st.write(f'Product: {names[j]}\nRate: {rates[j]}\nArea: {area[j]}\nTimes: {times[j]}')
             products.append(
                 {
                     'name': names[j],
