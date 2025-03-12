@@ -30,8 +30,6 @@ if tool == "Extraction":
 
     try:
         crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfiles)
-
-        print(crops)
         
         cols_to_drop = [
             'ObjectID', 
@@ -107,7 +105,7 @@ if tool == "Extraction":
             # fraction of data from BOM
             st.write(percentage_from_BOM(nearest_station.index.to_list(), nearest_station))
 
-            endYear = int(st.text_input("Input the end year (YYYY):", "2023"))
+            endYear = int(st.text_input("Input the end year (YYYY):", production_year))
 
             # Get a list of weather data from all four weather station
             weather_dfs = to_list_dfs(endYear, nearest_station)
@@ -313,7 +311,7 @@ if tool == "Extraction":
             for i in range(12): # Number of crop type
                 croptype = CropType_Header.offset(i + 1)
                 for crop in crops:
-                    if crop == croptype.value.lower():
+                    if crop in croptype.value.lower():
                         # Area sown
                         croptype.offset(column=1).value = questionnaire_df[f'area_sown_{crop.lower()}'].iloc[0]
                         # Last year yield
@@ -336,7 +334,6 @@ if tool == "Extraction":
             # List of fertiliser applied breaks down by
             # crop type
             ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, 'fert')
-            st.write(ferts)
             # Loop to write into the worksheet
             for i, crop in enumerate(crops):
                 crop_ferts = ferts[crop]
@@ -366,7 +363,7 @@ if tool == "Extraction":
             ws = wb['Chemical Applied - Input']
             # List of chemical applied break downs
             # by crop
-            chemicals = ['fungicide', 'herbicide', 'insecticide', 'chem']
+            chemicals = ['fungicide', 'herbicide', 'insecticide', 'chem_other']
             chems = {}
             for chem in chemicals:
                 chems[chem] = ListFertChem(crop_specific_input, crops, questionnaire_df, chem)
@@ -461,7 +458,7 @@ if tool == "Extraction":
             shutil.make_archive("Question_Extract", "zip", tmp_out)
 
             # Name the file by the first property name
-            zip_name = questionnaire_df.loc[0, 'property_name'] + '_' + str(dt.today().strftime('%d-%m-%Y'))
+            zip_name = str(questionnaire_df.loc[0, 'property_name']) + '_' + str(dt.today().strftime('%d-%m-%Y'))
 
             with open("Question_Extract.zip", "rb") as f:
                 st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
