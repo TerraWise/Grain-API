@@ -594,8 +594,8 @@ else:
         # url and key
         API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
         # Add in the key and perm file when AIA gets back to us
-        key = 'carbon-calculator-integration.key'
-        pem = 'aiaghg-terrawise.pem'
+        key = os.path.join('credential', 'carbon-calculator-integration.key')
+        pem = os.path.join('credential', 'aiaghg-terrawise.pem')
 
         # POST request for the API Grains only
         response = rq.post(url=API_url, headers=Headers, json=datas, cert=(pem, key))
