@@ -14,7 +14,12 @@ from datetime import datetime as dt
 import numpy as np
 import datetime as dt
 from weather_stations import *
-from zipfile import ZipFile
+
+
+def remove_insert(list: list, index: int, value: str):
+    del list[index]
+    list.insert(index, value)
+    return list
 
 # Get current path
 cwd = os.getcwd()
@@ -483,6 +488,7 @@ else:
     try:
         # Create a df using function
         df = ToDataFrame(ex_file)
+        df['Area sown (ha)'] = df['Area sown (ha)'].apply(lambda x: float(x))
 
         # Separate it by crop type
         Crop = ByCropType(df)
@@ -493,7 +499,7 @@ else:
         # Choose the desired crop to send a request
         desired_crop = st.multiselect('Choose which crop to send your request:', df['Crop type'].loc[df['Area sown (ha)']>0].to_list())
     except TypeError:
-        st.write("Don't have an excel file to read")
+        st.write("Haven't uploaded an inventory sheet yet")
 
     # Name the file by the first property name
     filename = st.text_input('Save the file as:', key='GAFF_file')
@@ -520,11 +526,12 @@ else:
             if desired_crop[i] == Crop[j]['Crop type']:
                 selected_crop.append(j)
                 if desired_crop[i] == 'Canola':
-                    Crop[j]['Crop type'] = 'Oilseeds'
+                    Crop[j].replace('Canola', 'Oilseeds', inplace=True)
                 j = 0
                 i += 1
             else:
                 j += 1
+        
 
         # Default the production system
         # to 'Non-irrigated crop'
@@ -580,8 +587,13 @@ else:
                             'area': float(Crop[i]['Area (ha)']),
                             'age': float(Crop[i]['Age (yrs)'])
                         },
-                        'allocationToCrops': [0]*(len(selected_crop)-1) + [float(Crop[i]['Allocation to crop'])]
+                        'allocationToCrops': [0]*(len(selected_crop))
                     }
+                )
+                datas['vegetation'][i]['allocationToCrops'] = remove_insert(
+                    datas['vegetation'][i]['allocationToCrops'], 
+                    i, 
+                    float(Crop[i]['Allocation to crop'])
                 )
 
         # Set the header
@@ -603,6 +615,10 @@ else:
         # Status code to see if it's a
         # successful request
         st.write(response.status_code)
+        if response.status_code != 200:
+            st.write(response.json())
+
+        st.write(response.json())
 
         # Turn the responsed json into python dict
         response_dict = response.json()
