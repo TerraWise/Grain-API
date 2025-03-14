@@ -46,7 +46,7 @@ def ToDataFrame(excel_wb: str):
 # Separate the big df into crop type
 def ByCropType(df: pd.DataFrame):
     Crop = []
-    for i in range(len(df['Crop type'])):
+    for i in df['Crop type'].index:
         Crop.append(df.iloc[i])
     return Crop
 
