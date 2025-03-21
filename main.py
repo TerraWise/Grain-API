@@ -82,7 +82,7 @@ if tool == "Extraction":
         try:
             crop = st.radio('Choose the crop to view', crops)
             input = st.radio('Choose an input to review', [
-                    'fert', 'fungicide', 'herbicide', 'insecticide', 'chem'
+                    'fert', 'fungicide', 'herbicide', 'insecticide', 'chem_other'
                 ]
             )
             st.dataframe(crop_specific_input[crop][input], hide_index=True)
