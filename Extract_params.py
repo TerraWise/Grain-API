@@ -46,7 +46,7 @@ def ToDataFrame(excel_wb: str):
 # Separate the big df into crop type
 def ByCropType(df: pd.DataFrame):
     Crop = []
-    for i in range(len(df['Crop type'])):
+    for i in df['Crop type'].index:
         Crop.append(df.iloc[i])
     return Crop
 
@@ -57,9 +57,10 @@ def GenInfo(excel_wb: str):
     # Activate the sheet
     ws = wb['General information']
     # Get the state loc info (assuming the cell does not change)
-    loc = ws.cell(2, 2).value
+    loc = ws.cell(9, 2).value
     # Rainfall > 600mm
-    rf_over = ws.cell(3, 11).value
-    # Production system
-    prod_sys = ws.cell(8, 2).value
-    return loc, rf_over, prod_sys
+    if ws.cell(17, 2).value == 'N':
+        rain_over = False
+    else:
+        rain_over = True
+    return loc, rain_over

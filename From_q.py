@@ -1,178 +1,281 @@
-import csv
+import os, tempfile, shutil, glob, csv
 import pandas as pd
-import numpy as np
 from datetime import datetime as dt
-import os
 import geopandas as gpd
-import tempfile
-import shutil
-import glob
+from zipfile import ZipFile
+
+
+def FromTheTop(zipfiles: list):
+    for zipfile in zipfiles:
+        with tempfile.TemporaryDirectory() as td:
+            with ZipFile(zipfile) as zObject:
+                zObject.extractall(td)
+            for csv in os.listdir(td):
+                if 'questionnaire' in csv.lower():
+                    questionnaire_df = pd.read_csv(
+                        os.path.join(td, csv)
+                    )
+            crops = questionnaire_df['crops_grown'].iloc[0].split(',')
+            crop_specific_input = CropAssemble(td, crops)
+            veg_df = VegetationDf(td)
+    return crops, crop_specific_input, questionnaire_df, veg_df
+
+def CropAssemble(tmp_input_dir: str, crops: list) -> dict:
+    cols_to_drop = [
+        'ObjectID', 
+        'GlobalID', 
+        'ParentGlobalID', 
+        'CreationDate', 
+        'Creator', 
+        'EditDate', 
+        'Editor'
+    ]
+    crop_specific_input = {}
+    for crop in crops:
+        crop_specific_input[crop] = {}
+        for csv in os.listdir(tmp_input_dir):
+            input = csv.split('_')
+            if input[0] != 'chem' and input[0] != 'machine':
+                canola_in_csv = '_'.join(input[1:3])
+            else:
+                canola_in_csv = '_'.join(input[2:4])
+            if canola_in_csv == crop:
+                if 'chem' in input:
+                    crop_specific_input[crop]['_'.join(input[:2])] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+                else:
+                    crop_specific_input[crop][input[0]] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+            elif not 'gm_canola' in crop and crop in csv:
+                if 'chem' in input:
+                    crop_specific_input[crop]['_'.join(input[:2])] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+                else:
+                    crop_specific_input[crop][input[0]] = (
+                        pd.read_csv(os.path.join(tmp_input_dir, csv))
+                        .drop(cols_to_drop, axis=1)
+                    )
+    return crop_specific_input
+
+def VegetationDf(tmp_input_dir: str) -> pd.DataFrame:
+    for csv in os.listdir(tmp_input_dir):
+        if 'planting' in csv:
+            return pd.read_csv(
+                os.path.join(tmp_input_dir, csv)
+            )
+    return None
+
 
 # Extract follow up question
-def FollowUp(df: pd.DataFrame, dir):
+def FollowUp(df: pd.DataFrame, dir: str):
     # Extract from csv
     info = {}
     # A fall back Attribute error
     try:
-        info['Enterprises'] = df['Please select the following that best apply to your operation'].iloc[0].split('\n')
-    except AttributeError:
-        info['Enterprises'] = "Haven't selected business's enterprises"
-    try:
         info['List of on-farm machinery'] = df['If you have a list of all on-farm machinery and equipment, please upload it here. Alternatively, please email it to toby@terrawise.au'].iloc[0].split('\n')
-    except AttributeError:
+    except KeyError:
         info['List of on-farm machinery'] = "Don't have attachment, please follow up"
     try:
         info['Farm management software'] = df['Please select the applications you use below'].iloc[0].split('\n')
     except AttributeError:
         info['Farm management software'] = "Didn't select software"
-    try:    
-        info['Variable rate'] = df['Do you utilise Variable Rate Technology (VRT) across your property? Or do you apply differing rates of fertiliser within paddock zones and/or crop types?'].iloc[0]
-    except AttributeError:
-        info['Variable rate'] = "Don't know. Need to ask again."    
     try:
-        info['Access to software & \n record of variable rate'] = df['Are you happy to provide us with access to these applications, records and/or service providers to conduct your carbon account? If so, provide details via toby@terrawise.au or call 0488173271 for clarification'].iloc[0]
+        info['Access to software & \n record of variable rate'] = df['Are you happy to provide us with access to these applications, record and/or service providers to conduct your carbon account?'].iloc[0]
     except AttributeError:
         info['Access to software & \n record of variable rate'] = "Either no or hasn't been answered. Please follow up"
+    try:    
+        info['Variable rate'] = df['Do you use variable rate technology (VRT) across your property ?'].iloc[0]
+    except AttributeError:
+        info['Variable rate'] = "Don't know. Need to ask again."
+    if df['Do you engage any on-farm contractor services during the year?'].iloc[0] == 'yes':
+        try:
+            info['Contractor activities'] = df['Select all that apply'][0].split(',')
+        except AttributeError:
+            info['Contractor activities'] = "Yes engagement with contractor but didn't select the activities"
+    else:
+        info['Contractor activities'] = "No contractor activites on-farm during preivoues production year"
     # Write out the follow up question
     with open(os.path.join(dir, 'follow_up.csv'), 'w', newline='') as out:
         csv_out = csv.DictWriter(out, info.keys())
         csv_out.writeheader()
         csv_out.writerow(info)
 
-def SpecCrop(df: pd.DataFrame, crops: list, dir):
+def LandManagement(df: pd.DataFrame, crops: list, dir: str):
     # Loops for crop specific info
     # based on the number of crops
     # Number of crop in the questionnaire
     for crop in crops:
         crop_info = {}
-        for label, content in df.items():
-            if crop.lower() in label:
-                # Land management
-                if 'land management' in label:
-                    try:
-                        crop_info[f'Land management practices - {crop}'] = content.iloc[0].split('\n')
-                    except AttributeError:
-                        crop_info[f'{crop}'] = "Wasn't answered in the form"
-                # Contractors
-                if 'contractor' in label:
-                    try:
-                        crop_info[f'{label}'] = content.iloc[0].split('\n')
-                    except AttributeError:
-                        crop_info[f'{label}'] = "Wasn't answered in the form"
         try:
-            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
-                                     in crop_info.items()]))
-        except ValueError:
-            out = pd.DataFrame(dict([(key, pd.Series(value)) for key, value 
-                                     in crop_info.items()]), index=[0])
-        out.to_csv(os.path.join(dir, f'{crop}_follow_up.csv'))
+            land_practices = df[f'alt_land_man_{crop}'].iloc[0].split(',')
+            crop_info[f'Land management practices - {crop}'] = ', '.join(land_practices)
+        except AttributeError:
+            crop_info[f'Land management practices - {crop}'] = "Wasn't answered in the form"
+        out = pd.DataFrame(crop_info.values(), index=crop_info.keys())
+        out.to_csv(os.path.join(dir, f'LandMangementPractices.csv'))
+       
 
 # Fertilser info from questionnaire
-def ListFertChem(df: pd.DataFrame, crops: list, a: int) -> list:
-    products_applied = []
+def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, which: str) -> dict:
+    products_applied = {}
     for crop in crops:
-        products = {}
+        df = input_dict[crop][which]
+        products = []
         names = []
         rates = []
         forms = []
-        # area = [] 
-        for label, content in df.items():
-            if a == 1: # To choose fert
-                cond = crop.lower() in label.lower() and 'fertiliser' in label.lower()
-                if cond and 'npk' in label.lower():
-                    try:
-                        if not np.isnan(float(content.iloc[0])):
-                            if cond and 'other' in label.lower():
-                                names.append(content.iloc[0])
-                    except ValueError:
-                        names.append(content.iloc[0])
-                if cond and 'rate' in label.lower():
-                    rates.append(content.iloc[0])
-                if cond and 'liquid' in label.lower():
-                    forms.append(content.iloc[0])
-                # if cond and 'hectares' in label.lower():
-                #     area.append(content.iloc[0])
-            else: # for chemical
-                cond = crop.lower() in label.lower() and 'chemical' in label.lower()
-                if cond and 'select' in label.lower():
-                    try:
-                        if not np.isnan(float(content.iloc[0])):
-                            if crop.lower() in label and 'other' in label.lower() and 'chemical' in label.lower():
-                                names.append(content.iloc[0])
-                    except ValueError:
-                        names.append(content.iloc[0])
-                if cond and 'rate' in label.lower():
-                    rates.append(content.iloc[0])
-                if cond and 'liquid' in label.lower():
-                    forms.append(content.iloc[0])
-                # if cond and 'hectares' in label.lower():
-                #     area.append(content.iloc[0])
-        i = 0
-        while i < len(names):
-            products[f'product_{i}'] = {
-                'name': names[i],
-                'rate': rates[i],
-                'form': forms[i]
-            }
-            i += 1
-        products_applied.append(products)
+        whole_area = questionnaire_df[f'area_sown_{crop.lower()}'].iloc[0]
+        area = []
+        times = []
+        for col in df.columns:
+            for i in df.index:
+                col_lower = col.lower()
+                if which == 'fert':
+                    if 'npk' in col_lower:
+                        name = df[col].iloc[i].split('_')
+                        if name == 'other':
+                            name = df[f'specify_fert_{crop.lower()}'].iloc[i].split('_')
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())
+                        else:
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())  
+                else:
+                    if 'applied' in col_lower:
+                        name = df[col].iloc[i].split('_')
+                        if ''.join(name) == 'other':
+                            name = df[f'specify_{which}_{crop.lower()}'].iloc[i].split('_')
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())
+                        else:
+                            brand = ' '.join(name)
+                            names.append(brand.capitalize())  
+                if 'form' in col_lower:
+                    forms.append(df[col].iloc[i])
+                try:
+                    if forms[i] == 'liquid' and 'rate_l' in col_lower:
+                        rates.append(df[col].iloc[i])
+                    elif forms[i] == 'granular' and 'rate_kg' in col_lower:
+                        rates.append(df[f'{which}_rate_kg_{crop}'].iloc[i])
+                except IndexError:
+                    continue
+                if 'hectares' in col_lower:
+                    if df[col].iloc[i] == 'whole':
+                        area.append(whole_area)
+                    elif 'spec' in col_lower:
+                        area.append(
+                            df[col].iloc[i]
+                        )
+                if 'times' in col_lower:
+                    times.append(df[col].iloc[i])
+        j = 0
+        while j < len(names):
+            products.append(
+                {
+                    'name': names[j],
+                    'form': forms[j],
+                    'rate': rates[j],
+                    'area': area[j],
+                    'times': times[j]
+                }
+            )
+            j += 1
+        products_applied[crop] = products
     return products_applied
 
 # Soil amelioration
 def ToSoilAme(df: pd.DataFrame, crops: list) -> dict:
     # List of soil amelioration
-    soil_amelioration = ['lime', 'dolomite']
+    soil_amelioration = ['lime', 'dolomite', 'gypsum', 'other']
     # Empty dict to store result
     products_applied = {}
     # Iterate over different crop types
-    for crop in crops:
-        products_applied[crop] = {}
-        for ame in soil_amelioration: 
-            for label, content in df.items():
-                cond = crop.lower() in label.lower() and ame in label.lower()
-                if  cond and 'hectares' in label.lower():
-                    ha = content.iloc[0]
-                if cond and 'rate' in label.lower():
-                    rate = content.iloc[0]
-            if not np.isnan(ha) or not np.isnan(rate):
-                products_applied[crop][ame] = {
+    for i, crop in enumerate(crops):
+        products_applied[crop] = []
+        applied = 'no'
+        for ame in soil_amelioration:
+            for col in df.columns:
+                col_lower = col.lower()
+                cond = crop.lower() in col_lower and ame in col_lower
+                if cond and 'applied' in col_lower:
+                    applied = df[col].iloc[0]
+                if applied == 'yes':
+                    if ame == 'lime':
+                        name = df[f'lime_or_limesand_{crop}'].iloc[0]
+                    elif ame == 'other':
+                        name = df[f'spec_amel_{crop}'].iloc[0]
+                    else:
+                        name = ame
+                    if cond and 'hectares' in col_lower:
+                        ha = df[col].iloc[0]
+                    if cond and 'rate' in col_lower:
+                        rate = df[col].iloc[0]  
+                    if cond and 'location' in col_lower:
+                        source = df[col].iloc[0]
+                    if cond and 'times' in col_lower:
+                        times = df[col].iloc[0]
+            products_applied[crop].append(
+                {
+                    'name': name,
+                    'source': source,
                     'rate': rate,
-                    'area': ha
+                    'area': ha,
+                    'times': times
                 }
-    
+            )
     return products_applied
 
-# Get the total number of products applied
-def get_num_applied(crops: list, products_applied: dict):
-    if len(crops) == 0:
-        return 0
-    return len(products_applied[crops[0]]) + get_num_applied(crops[1:], products_applied)
-
 # Vegetation
-def ToVeg(df: pd.DataFrame) -> dict:
-    pre_year = dt.now().year
-
-    vegetation = {}
+def ToVeg(veg_df, planting_shapes) -> dict:
+    current_year = dt.now().year
+    vegetation = []
     # Set the evaluate to 'Yes' or 'No' based on the questionnaire
-    eva = df['Have you planted any vegetation (trees) on-farm since 1990?'].iloc[0]
-
-    for label, content in df.items():
-        cond = 'veg' in label.lower()
-        if eva == 'Yes':
-            if cond and 'describes' in label.lower():
-                vegetation['species'] = content.iloc[0]
-            if cond and 'hectares' in label.lower():
-                vegetation['ha'] = content.iloc[0]
-            if cond and 'year' in label.lower():
-                planted_year = content.iloc[0]
-                vegetation['age'] = pre_year - planted_year
-            if cond and 'soil' in label.lower():
-                vegetation['soil type'] = content.iloc[0]
-
+    if veg_df is None:
+        return None
+    region, area = get_planting_region(planting_shapes)
+    for i in veg_df.index:
+        species = veg_df['Which species were planted?'].iloc[i]
+        planted_year = veg_df['What year were these trees planted?'].iloc[i]
+        configuration = veg_df['How were these plantings configured?'].iloc[i]
+        soil_type = veg_df['What was the soil type?'].iloc[i]
+        vegetation.append(
+            {
+                'region': region,
+                'species': species,
+                'soil': soil_type,
+                'area': area,
+                'planted_year': planted_year,
+                'age': current_year - planted_year
+            }
+        )
     return vegetation
 
+# Helper function for region
+def get_planting_region(shapes):
+    BOM_rainfall_gdf = gpd.read_file(
+        os.path.join('input', 'BOM_RF_Region.zip')
+    )
+    gdf = read_shapes(shapes)
+
+    BOM_rainfall_gdf = BOM_rainfall_gdf.to_crs('WGS84')
+    gdf = gdf.to_crs('WGS84')
+
+    clipped_region = BOM_rainfall_gdf.clip(gdf)
+
+    region = clipped_region['DIST_NAME'].iloc[0]
+    area = gdf.to_crs(gdf.estimate_utm_crs()).area.iloc[0]
+    
+    return region, area
+
+
 # Get the lat, lon of the shapefile
-def GetXY(shapes):
+def read_shapes(shapes):
     with tempfile.TemporaryDirectory() as td:
         # Iterate over the uploaded file to get the filename
         for shape in shapes:
@@ -187,8 +290,11 @@ def GetXY(shapes):
             gdfs.append(gdf)
         # Group all the separate geo df into one complete geo df
         gdf = gpd.GeoDataFrame(pd.concat(gdfs))
-        centroid = gdf.dissolve().centroid
-        lon = centroid.x[0]
-        lat = centroid.y[0]
         shutil.rmtree(td)
-    return lon, lat
+    return gdf
+
+
+# Remove multiple files
+def RemoveFiles(files: list):
+    for file in files:
+        os.remove(file)
