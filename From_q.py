@@ -160,31 +160,42 @@ def ListFertChem(input_dict: dict, crops: list, questionnaire_df: pd.DataFrame, 
                     forms.append(df[col].iloc[i])
                 try:
                     if forms[i] == 'liquid' and 'rate_l' in col_lower:
-                        rates.append(df[col].iloc[i])
+                        rates.append(float(df[col].iloc[i]))
                     elif forms[i] == 'granular' and 'rate_kg' in col_lower:
-                        rates.append(df[f'{which}_rate_kg_{crop}'].iloc[i])
+                        rates.append(float(df[f'{which}_rate_kg_{crop}'].iloc[i]))
                 except IndexError:
                     continue
                 if 'hectares' in col_lower:
                     if df[col].iloc[i] == 'whole':
-                        area.append(whole_area)
-                    elif 'spec' in col_lower:
-                        area.append(
-                            df[col].iloc[i]
-                        )
+                        area.append(float(whole_area))
+                    else:
+                        try:
+                            area.append(
+                                float(df[f'{which}_hectares_spec_{crop}'].iloc[i])
+                            )
+                        except KeyError:
+                            try:
+                                area.append(
+                                    float(df[f'{which}_specify_hectares_{crop}'].iloc[i])
+                                )
+                            except KeyError:
+                                area.append(
+                                    float(df[f'{which}_hectares_{crop}_spec'].iloc[i])
+                                )
                 if 'times' in col_lower:
-                    times.append(df[col].iloc[i])
+                    times.append(float(df[col].iloc[i]))
         j = 0
         while j < len(names):
-            products.append(
-                {
-                    'name': names[j],
-                    'form': forms[j],
-                    'rate': rates[j],
-                    'area': area[j],
-                    'times': times[j]
-                }
-            )
+            if names[j] != 'Na':
+                products.append(
+                    {
+                        'name': names[j],
+                        'form': forms[j],
+                        'rate': rates[j],
+                        'area': area[j],
+                        'times': times[j]
+                    }
+                )
             j += 1
         products_applied[crop] = products
     return products_applied

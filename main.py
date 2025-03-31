@@ -354,7 +354,7 @@ if tool == "Extraction":
                     # Forms
                     ws.cell(row + space, 2).value = fert['form']
                     # Crop
-                    ws.cell(row + space, 4).value = crop
+                    ws.cell(row + space, 4).value = crop.capitalize()
                     # Rate
                     ws.cell(row + space, 6).value = fert['rate']
                     # Area
@@ -371,6 +371,7 @@ if tool == "Extraction":
             chemicals = ['fungicide', 'herbicide', 'insecticide', 'chem_other']
             chems = {}
             for chem in chemicals:
+                st.write(chem)
                 chems[chem] = ListFertChem(crop_specific_input, crops, questionnaire_df, chem)
             # Refer to fertiliser section
             for chem in chemicals:
@@ -389,7 +390,7 @@ if tool == "Extraction":
                         # Forms
                         ws.cell(row + space, 2).value = chem['form']
                         # Crop
-                        ws.cell(row + space, 16).value = crop
+                        ws.cell(row + space, 16).value = crop.capitalize()
                         # Rate
                         ws.cell(row + space, 17).value = chem['rate']
                         # Area
@@ -419,7 +420,7 @@ if tool == "Extraction":
                     # Source
                     ws.cell(row + space, 2).value = product['source']
                     # Crop
-                    ws.cell(row + space, 4).value = crop
+                    ws.cell(row + space, 4).value = crop.capitalize()
                     # Rate
                     ws.cell(row + space, 5).value = product['rate']
                     # Area
