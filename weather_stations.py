@@ -89,26 +89,8 @@ def annual_summary(df: pd.DataFrame) -> tuple:
     eto_tall = df["ETTallCrop"].sum() / (endYear - startYear + 1)
     return rain, eto_short, eto_tall
 
-#get API data    
-api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
 
-params = {
-    'format': 'near',
-    'station': 10619, # Nyabing weather station
-    'radius': 800 # in km
-}
-url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)
-
-with urllib.request.urlopen(url) as remote:
-    data = remote.read()
-
-#write API data as file and then as Pd DF
-with io.BytesIO() as f:
-    f.write(data)
-    f.seek(0)
-    weather_stations = pd.read_csv(f,delimiter = "|")
-
-def get_nearby_stations(lat: float, long: float, station_df: pd.DataFrame = weather_stations)->pd.DataFrame:
+def get_nearby_stations(lat: float, long: float, station_df: pd.DataFrame)->pd.DataFrame:
 
     distances = list()
     quadrants = list()

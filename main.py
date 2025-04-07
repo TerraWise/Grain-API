@@ -95,6 +95,25 @@ if tool == "Extraction":
         # Upload shapefile for SILO's API (weather data)
         shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
 
+        #get API data    
+        api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
+
+        params = {
+            'format': 'near',
+            'station': 10619, # Nyabing weather station
+            'radius': 800 # in km
+        }
+        url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)
+
+        with urllib.request.urlopen(url) as remote:
+            data = remote.read()
+
+        #write API data as file and then as Pd DF
+        with io.BytesIO() as f:
+            f.write(data)
+            f.seek(0)
+            weather_stations = pd.read_csv(f,delimiter = "|")
+
         try: # Incase there are no files (don't want to scare people away)
             # Get the coordinate from the shapefile
 
@@ -105,7 +124,7 @@ if tool == "Extraction":
             lat = centroid.y[0]
 
             # A df of nearest station
-            nearest_station = get_nearby_stations(lat, lon)
+            nearest_station = get_nearby_stations(lat, lon, weather_stations)
 
             # To show four nearest weather station with the
             # fraction of data from BOM
