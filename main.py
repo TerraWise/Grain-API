@@ -1,4 +1,4 @@
-# Import the required pacakage
+# Import the required modules
 import openpyxl.cell
 import openpyxl
 import openpyxl.utils.dataframe
@@ -14,6 +14,7 @@ from datetime import datetime as dt
 import numpy as np
 import datetime as dt
 from weather_stations import *
+import glob
 
 
 def remove_insert(list: list, index: int, value: str):
@@ -196,11 +197,10 @@ if tool == "Extraction":
             # Crop specific info
             LandManagement(questionnaire_df, crops, tmp_out)
 
+            xlsx_path = glob.glob(pathname=os.path.join('input', '*.xlsx'))
 
             # Write into the inventory sheet
-            wb = openpyxl.load_workbook(
-                os.path.join('input', "Inventory sheet v2 - Grain.xlsx")
-            )
+            wb = openpyxl.load_workbook(xlsx_path[0])
 
             # Fill in general info
             ws = wb['General information']
