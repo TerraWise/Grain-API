@@ -6,3 +6,6 @@ Export feature/
 DPIRD-weather/
 *.json
 test.ipynb
+input/
+weather_output/
+*.zip
