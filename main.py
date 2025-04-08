@@ -95,6 +95,25 @@ if tool == "Extraction":
         # Upload shapefile for SILO's API (weather data)
         shapes = st.file_uploader("Upload all of your shapefile for weather data or the compressed file:", accept_multiple_files=True)
 
+        #get API data    
+        api_url = 'https://www.longpaddock.qld.gov.au/cgi-bin/silo'
+
+        params = {
+            'format': 'near',
+            'station': 10619, # Nyabing weather station
+            'radius': 800 # in km
+        }
+        url = api_url + '/PatchedPointDataset.php?' + urllib.parse.urlencode(params)
+
+        with urllib.request.urlopen(url) as remote:
+            data = remote.read()
+
+        #write API data as file and then as Pd DF
+        with io.BytesIO() as f:
+            f.write(data)
+            f.seek(0)
+            weather_stations = pd.read_csv(f,delimiter = "|")
+
         try: # Incase there are no files (don't want to scare people away)
             # Get the coordinate from the shapefile
 
@@ -105,11 +124,11 @@ if tool == "Extraction":
             lat = centroid.y[0]
 
             # A df of nearest station
-            nearest_station = get_nearby_stations(lat, lon)
+            nearest_station = get_nearby_stations(lat, lon, weather_stations)
 
             # To show four nearest weather station with the
             # fraction of data from BOM
-            st.write(percentage_from_BOM(nearest_station.index.to_list(), nearest_station))
+            st.write(nearest_station)
 
             endYear = int(st.text_input("Input the end year (YYYY):", production_year))
 
@@ -119,10 +138,6 @@ if tool == "Extraction":
             # Choose the data from a weather station or
             # a weighted average of multiple stations
             selected_stations = st.multiselect("Select your weather station (one or multiples):", nearest_station.iloc[:,0].to_list())
-        except ValueError:
-            st.write("Haven't upload a bunch of shapefiles yet")
-
-        if st.button("Retrive your data from SILO Long Paddock"):
             # Indexes to go through the list of selected
             # station and list of all weather station's df
             i, j = 0, 0
@@ -148,40 +163,46 @@ if tool == "Extraction":
             # Create an empty df for extracted data or
             # weighted average if multiple stations
             daily_df = pd.DataFrame()
-            try: 
+            if isinstance(extracted_df, list): 
                 daily_df['Date'] = extracted_df[0]["YYYY-MM-DD"]
-            except KeyError:
+            else:
                 daily_df['Date'] = extracted_df["YYYY-MM-DD"]
             daily_df["Year"] = [int(i[0:4]) for i in daily_df['Date']]
             daily_df["Rain"] = weighted_ave_col(extracted_df, "daily_rain", nearest_station, selected_stations)
             daily_df["ETShortCrop"] = weighted_ave_col(extracted_df, "et_short_crop", nearest_station, selected_stations)
             daily_df["ETTallCrop"] = weighted_ave_col(extracted_df, "et_tall_crop", nearest_station, selected_stations)
 
+            rain, eto_short, eto_tall = annual_summary(daily_df, endYear)
+            rain_long, eto_short_long, eto_tall_long = longTerms_summary(daily_df)
+
             # Create a folder for saving and linkage
             # to the excel writing
-            try:
-                os.mkdir(os.path.join(cwd, 'weather_output'))
-            except FileExistsError:
-                pass
+            with tempfile.TemporaryDirectory() as td:
+                daily_df.to_csv(os.path.join(td, f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'), index=False)
 
-            daily_df.to_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_daily_df.csv'))
-
-            rain, eto_short, eto_tall = annual_summary(daily_df)
-
-            # Save the annual weather data as csv without indexes
-            pd.DataFrame(
-            {"Rainfall_2yr_ave_mm": rain, "ETo_Short_2yr_ave_mm": eto_short, "ETo_Tall_2yr_ave_mm": eto_tall}, index=[0]
-            ).to_csv(
-                os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'), index=False
+                # Save the annual weather data as csv without indexes
+                pd.DataFrame(
+                    {"Annual_rf_mm": rain, "Annual_ETo_Short_mm": eto_short, "Annual_ETo_Tall_mm": eto_tall}, index=[0]
+                ).to_csv(
+                    os.path.join(td, f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'), index=False
                 )
-            
-            # Put everything into a zip file
-            shutil.make_archive("Weather_data", "zip", os.path.join(cwd, 'weather_output'))
 
-            zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + str(dt.today().strftime('%d-%m-%Y'))
-            # Download the zip file
-            with open("Weather_data.zip", "rb") as f:
-                st.download_button('Download weather data?', f, file_name=zip_name+".zip")
+                pd.DataFrame(
+                    {"LongTerm_rf_mm": rain_long, "LongTerm_ETo_Short_mm": eto_short_long, "LongTerm_ETo_Tall_mm": eto_tall_long}, index=[0]
+                ).to_csv(
+                    os.path.join(td, f'{'+'.join(str(station) for station in selected_stations)}_longterm_ave_df.csv'), index=False
+                )
+                
+                # Put everything into a zip file
+                shutil.make_archive("Weather_data", "zip", os.path.join(td))
+
+                zip_name = f'{'+'.join(str(num) for num in selected_stations)}' + '_' + str(dt.today().strftime('%d-%m-%Y'))
+                # Download the zip file
+                with open("Weather_data.zip", "rb") as f:
+                    st.download_button('Download weather data?', f, file_name=zip_name+".zip")
+        except ValueError:
+            st.write("Haven't upload a bunch of shapefiles yet")
+            
 
     if st.button("Start the extraction process", key="Extraction"):
 
@@ -236,13 +257,12 @@ if tool == "Extraction":
                 ws.cell(12, 2).value = questionnaire_df['property_av_annual_rainfall'].iloc[0]
             except AttributeError:
                 ws.cell(12, 2).value = "Didn't provide rainfall data"
-            # Data from the weather_output/
-            SILO_weather = pd.read_csv(os.path.join(cwd, 'weather_output', f'{'+'.join(str(station) for station in selected_stations)}_annual_ave_df.csv'))
+
             # Rainfall
-            ws.cell(13, 2).value = SILO_weather.loc[0, 'Rainfall_2yr_ave_mm']
+            ws.cell(13, 2).value = rain
             # Evapotranspiration
-            ws.cell(16, 2).value = SILO_weather.loc[0, 'ETo_Short_2yr_ave_mm']
-            ws.cell(16, 3).value = SILO_weather.loc[0, 'ETo_Tall_2yr_ave_mm']
+            ws.cell(16, 2).value = eto_short
+            ws.cell(16, 3).value = eto_tall
 
             # Software
             # Farm management software (Y/N)
@@ -469,8 +489,6 @@ if tool == "Extraction":
             with open("Question_Extract.zip", "rb") as f:
                 st.download_button('Download the extracted info', f, file_name=zip_name+".zip")
         
-        # Remove the unused folder
-        shutil.rmtree(os.path.join(cwd, 'weather_output'))
         files = [
             os.path.join(cwd, 'Question_Extract.zip'),
             os.path.join(cwd, 'Weather_data.zip')
