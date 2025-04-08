@@ -4,6 +4,7 @@ import io
 import geopy.distance
 from datetime import datetime as dt
 import numpy as np
+import streamlit as st
 
 # Calculate the weight of each station based on distance
 def calc_weights(distances: list[float]) -> list[float]:
@@ -47,32 +48,36 @@ def get_station_df(station_code: int, start_Year: int, end_Year: int) -> pd.Data
         df = pd.read_csv(f)
     return df
 
+def get_quality_stations(weather_station: pd.DataFrame) -> list:
+    quality_station = weather_station.copy()
+
+    station_df = get_station_df(quality_station.loc["Number"], dt.now().year - 21, dt.now().year - 1)
+
+    rf_count = len(station_df[station_df["daily_rain_source"] == 0])
+    rf_frac = rf_count/len(station_df)
+
+    if (round(rf_frac, 1) >= 0.9):
+        quality_station.loc["Fraction of ranfall from BOM"] = rf_frac
+
+        return quality_station
+    
+    return None
+
 # Get the weather data from four nearby stations (NE, NW, SE, SW)
 def to_list_dfs(endYear: int, nearest_station: pd.DataFrame) -> list:
     endYear = endYear
-    startYear = endYear - 1
+    startYear = endYear - 19
     stations_dfs = []
     for i in nearest_station.index:
         stations_dfs.append(get_station_df(nearest_station.loc[i, "Number"], startYear, endYear))
 
     return stations_dfs
 
-# Fraction of data point from official BOM website
-def percentage_from_BOM(index: list, nearest_station: pd.DataFrame) -> pd.DataFrame:
-    # Create a copy of the df
-    copy_df = nearest_station.copy()
-    for i in index:
-        station_df = get_station_df(nearest_station.loc[i, "Number"], 2000, dt.now().year - 1)
-        # Source == 0 is from BOM (https://www.longpaddock.qld.gov.au/silo/about/about-data/)
-        frac_from_BOM = len(station_df[station_df['daily_rain_source'] == 0]) / len(station_df)
-        copy_df.loc[i, "Frac from BOM"] = frac_from_BOM
-    return copy_df
-
 def weighted_ave_col(input_dfs, colname: str, nearest_station_df: pd.DataFrame, selected_stations: list)->pd.Series:
     if isinstance(input_dfs, list):
         weights = []
         for station in selected_stations:
-            weights.append(nearest_station_df[nearest_station_df.iloc[:, 0]==station]['weight'].iloc[0])
+            weights.append(nearest_station_df[nearest_station_df.iloc[:, 0]==station]['weights'].iloc[0])
         out = 0
         for i in range(len(weights)):
             out += input_dfs[i][colname] * weights[i]
@@ -81,23 +86,27 @@ def weighted_ave_col(input_dfs, colname: str, nearest_station_df: pd.DataFrame, 
 
     return out
 
-def annual_summary(df: pd.DataFrame) -> tuple:
-    startYear = df['Year'].min()
-    endYear = df['Year'].max()
-    rain = df["Rain"].sum() / (endYear - startYear + 1)
-    eto_short = df["ETShortCrop"].sum() / (endYear - startYear + 1)
-    eto_tall = df["ETTallCrop"].sum() / (endYear - startYear + 1)
+def annual_summary(df: pd.DataFrame, assess_year: int) -> tuple:
+    rain = df["Rain"].loc[df['Year'].eq(assess_year)].sum()
+    eto_short = df["ETShortCrop"].loc[df['Year'].eq(assess_year)].sum()
+    eto_tall = df["ETTallCrop"].loc[df['Year'].eq(assess_year)].sum()
     return rain, eto_short, eto_tall
 
+def longTerms_summary(df: pd.DataFrame) -> tuple:
+    rain = df["Rain"].sum() / 20
+    eto_short = df["ETShortCrop"].sum() / 20
+    eto_tall = df["ETTallCrop"].sum() / 20
+    return rain, eto_short, eto_tall
 
 def get_nearby_stations(lat: float, long: float, station_df: pd.DataFrame)->pd.DataFrame:
+    station_df_copy = station_df.copy()
 
     distances = list()
     quadrants = list()
-    #station_nums = list()
-    for i in station_df.index:
-        row_coords = (station_df.loc[i,"Latitude"],station_df.loc[i,"Longitud"],)
-        distances.append(geopy.distance.geodesic((lat,long),row_coords).km)
+    
+    for i in station_df_copy.index:
+        row_coords = (station_df_copy.loc[i,"Latitude"], station_df_copy.loc[i,"Longitud"],)
+        distances.append(geopy.distance.geodesic((lat, long), row_coords).km)
         coord_diff = (row_coords[0] - lat, row_coords[1] - long)
         
         quadrant = ""
@@ -112,24 +121,21 @@ def get_nearby_stations(lat: float, long: float, station_df: pd.DataFrame)->pd.D
             quadrant = quadrant + "W"
         
         quadrants.append(quadrant)
-        #station_nums.append(station_df.loc[i,"Number"])
-    try:
-        del(station_df["Distance (km)"])
-    except KeyError:
-        pass
-    station_df["distance"] = distances
-    station_df["quadrant"] = quadrants
-    station_df = station_df.sort_values("distance")
 
-    select_stations = []
-    for quad in ["NE","SE","SW","NW"]:
-        select_row = station_df[station_df["quadrant"] == quad].head(1).index
-        if len(select_row) > 0:
-            select_stations.append(select_row[0])
+    station_df_copy.insert(len(station_df_copy.columns), 'distance to polygon', distances)
+    station_df_copy.insert(len(station_df_copy.columns), 'quadrant', quadrants)
+    
+    station_df_copy = station_df_copy.sort_values("distance to polygon")
 
-    select_station_df = station_df.loc[select_stations,:]
+    select_station_df = pd.DataFrame(columns=station_df_copy.columns.to_list() + ['Fraction of ranfall from BOM'])
+    i = 0
+    while len(select_station_df) < 8 and i < len(station_df_copy):
+        quality_station = get_quality_stations(station_df_copy.iloc[i])
+        if quality_station is not None:
+            select_station_df = pd.concat([select_station_df, quality_station.to_frame().T], ignore_index=True)
+        i += 1
 
-    weights = calc_weights(select_station_df["distance"].to_list())    
+    weights = calc_weights(select_station_df["distance to polygon"].to_list())    
 
-    select_station_df["weight"] = weights
-    return select_station_df
+    select_station_df.insert(len(select_station_df.columns), 'weights', weights)
+    return select_station_df.drop(['Latitude','Longitud', 'Stat', 'Elevat.', 'Distance (km)'], axis=1)
