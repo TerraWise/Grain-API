@@ -572,17 +572,17 @@ else:
                     'sulfurApplication': float(Crop[i]['Sulfur Applied (kg S/ha)']),
                     'rainfallAbove600': bool(rain_over),
                     'fractionOfAnnualCropBurnt': float(Crop[i]['Fraction of the annual production of crop that is burnt (%)']),
-                    'herbicideUse': float(Crop[i]['General Herbicide/Pesticide use (kg a.i. per crop)']),
-                    'glyphosateOtherHerbicideUse': float(Crop[i]['Herbicide (Paraquat, Diquat, Glyphoste) (kg a.i. per crop)']),
+                    'herbicideUse': float(Crop[i]['Other chemicals applied (kg a.i. per crop)']),
+                    'glyphosateOtherHerbicideUse': float(Crop[i]['Glyphosate (or equivalent) applied (kg a.i. per crop)']),
                     'electricityAllocation': float(Crop[i]['electricityAllocation']),
                     'limestone': float(Crop[i]['Mass of Lime Applied (total tonnes)']),
                     'limestoneFraction': float(Crop[i]['Fraction of Lime/Dolomite']),
                     'dieselUse': float(Crop[i]['Annual Diesel Consumption (litres/year)']),
-                    'petrolUse': float(Crop[i]['Annual Pertol Use (litres/year)']),
-                    'lpg': 0
+                    'petrolUse': float(Crop[i]['Annual Pertol Consumption (litres/year)']),
+                    'lpg': float(Crop[i]['Annual LPG Consumption (litres/year)'])
                 }
             )
-            if np.isnan(Crop[i]['Area (ha)']):
+            if np.isnan(Crop[i]['Vegetation area (ha)']):
                 datas['vegetation'].append(
                     {
                         'vegetation': {
@@ -600,10 +600,10 @@ else:
                     {
                         'vegetation': {
                             'region': Crop[i]['Region'],
-                            'treeSpecies': Crop[i]['Tree Species'],
-                            'soil': Crop[i]['Soil'],
-                            'area': float(Crop[i]['Area (ha)']),
-                            'age': float(Crop[i]['Age (yrs)'])
+                            'treeSpecies': Crop[i]['Vegetation species'],
+                            'soil': Crop[i]['Vegetation Soil type'],
+                            'area': float(Crop[i]['Vegetation area (ha)']),
+                            'age': float(Crop[i]['Average Vegetation age (yrs)'])
                         },
                         'allocationToCrops': [0]*(len(selected_crop))
                     }
@@ -611,7 +611,7 @@ else:
                 datas['vegetation'][i]['allocationToCrops'] = remove_insert(
                     datas['vegetation'][i]['allocationToCrops'], 
                     i, 
-                    float(Crop[i]['Allocation to crop'])
+                    float(Crop[i]['Allocation'])
                 )
 
         # Set the header
