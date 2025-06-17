@@ -12,7 +12,7 @@ from datetime import datetime as dt
 import numpy as np
 import datetime as dt
 from functions.Extract_params import *
-from funcitons.From_q import *
+from functions.From_q import *
 from functions.weather_stations import *
 
 
