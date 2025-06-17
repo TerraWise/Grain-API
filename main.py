@@ -4,8 +4,6 @@ import openpyxl
 import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
-from Extract_params import *
-from From_q import *
 import requests as rq
 import streamlit as st
 import geopandas as gpd
@@ -13,8 +11,14 @@ import shutil, os, tempfile
 from datetime import datetime as dt
 import numpy as np
 import datetime as dt
+<<<<<<< HEAD
 from weather_stations import *
 import glob
+=======
+from functions.Extract_params import *
+from funcitons.From_q import *
+from functions.weather_stations import *
+>>>>>>> 5816cc2 (Fix import statements for functions by correcting paths and ensuring proper module access)
 
 
 def remove_insert(list: list, index: int, value: str):
