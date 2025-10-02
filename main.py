@@ -14,6 +14,7 @@ import datetime as dt
 from functions.Extract_params import *
 from functions.From_q import *
 from functions.weather_stations import *
+import json
 
 
 def remove_insert(list: list, index: int, value: str):
@@ -622,7 +623,7 @@ else:
         }
 
         # url and key
-        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/v1/grains'
+        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/1.2.0/grains'
         # Add in the key and perm file when AIA gets back to us
         key = os.path.join('credential', 'carbon-calculator-integration.key')
         pem = os.path.join('credential', 'aiaghg-terrawise.pem')
@@ -636,104 +637,7 @@ else:
         if response.status_code != 200:
             st.write(response.json())
 
-        st.write(response.json())
-
-        # Turn the responsed json into python dict
-        response_dict = response.json()
-
-        # Empty list to store the scope, metric, 
-        # value of the response dict
-        metrics_list = []
-        by_crop = []
-
-        for keys, values in response_dict.items():
-            if keys != 'intermediate' and keys != 'metaData': # Skip intermediate (crop specific) and metaDate
-                # Check if the value of the key is a dictionary
-                if isinstance(values, dict):
-                    for key, value in values.items():
-                        # Check if the value is not a list
-                        if not isinstance(value, list):
-                            metrics_list.append(
-                                {
-                                    'scope': keys,
-                                    'metric': key,
-                                    'value': value
-                                }
-                            )
-                        else:
-                            for i in range(len(value)):
-                                # List type value breaks the result into crop type
-                                # Append based on the crop type
-                                metrics_list.append(
-                                    {
-                                    'scope': keys,
-                                    'metric': desired_crop[i],
-                                    'value': value[i]
-                                    }
-                                )
-                else:
-                    # For list type values
-                    for i in range(len(values)):
-                        if keys == 'intensitiesWithSequestration': # this key has dictionary type value
-                            for key, value in values[i].items():
-                                metrics_list.append(
-                                    {
-                                        'scope': keys + '_' + desired_crop[i],
-                                        'metric': key,
-                                        'value': value
-                                    }
-                                )
-                        else:
-                            metrics_list.append(
-                            {
-                                'scope': keys,
-                                'metric': desired_crop[i],
-                                'value': values[i]
-                            }
-                        )
-                            
-        for dictionary in response_dict['intermediate']:
-            df = []
-            for scope, dict_within in dictionary.items():
-                if isinstance(dict_within, dict):
-                    for key, value in dict_within.items():
-                        df.append(
-                            {
-                                'scope': scope,
-                                'metric': key,
-                                'value': value
-                            }
-                        )
-                else:
-                    df.append(
-                        {
-                            'scope': scope,
-                            'metric': "",
-                            'value': dict_within
-                        }
-                    )
-            by_crop.append(df)
-
-        # Temp folder to save ouput
-        with tempfile.TemporaryDirectory() as out_dir:
-            if len(by_crop) > 1:
-                for i in range(len(by_crop)):
-                    pd.DataFrame(
-                        by_crop[i]
-                    ).to_csv(
-                        os.path.join(out_dir, f'{desired_crop[i]}_GAFF.csv'), index=False
-                    )
-
-            # Create a df to export from the metrics list
-            out = pd.DataFrame(metrics_list)
-
-            out.to_csv(os.path.join(out_dir, 'output.csv'), index=False)
-
-            # Create a zip to save follow ups question
-            # and workbook
-            shutil.make_archive("GAFF_Tool_output", "zip", out_dir)
-
-            zip_name = filename + '_' + str(dt.today().strftime('%d-%m-%Y'))
-
-            with open("GAFF_Tool_output.zip", "rb") as f:
-                st.download_button("Download the result from AIA's API", f, file_name=zip_name+".zip")
+        with open("response.json", "wb") as f:
+            f.write(json.dumps(response.json(), indent=4).encode('utf-8'))
+            st.download_button("Download the result from AIA's API", f, file_name="_".join(selected_crop)+".json")
+            f.close()
