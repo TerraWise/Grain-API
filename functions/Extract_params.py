@@ -1,7 +1,7 @@
 # Import the required function
 import pandas as pd
 import openpyxl
-import csv
+import csv, tempfile
 
 # Funtion to create a df from excel sheet
 def ToDataFrame(excel_wb: str):
@@ -33,12 +33,12 @@ def ToDataFrame(excel_wb: str):
         for f, row in enumerate(rows):
             ws.cell(i, f + 1).value = row
     # Written into a csv
-    with open('df.csv', 'w', newline="") as f:
+    with tempfile.NamedTemporaryFile(mode='w+', newline='', delete=True) as f:
         c = csv.writer(f)
         for r in ws.rows:
-            c.writerow([cell.value for cell in r])        
-    # convert into dataframe object  
-    df = pd.DataFrame(pd.read_csv('df.csv'))
+            c.writerow([cell.value for cell in r])
+        f.seek(0)
+        df = pd.DataFrame(pd.read_csv(f))
     # Get rid of the extra row
     df = df.iloc[0:12]
     return df
