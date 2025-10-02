@@ -580,7 +580,8 @@ else:
                     'limestoneFraction': float(Crop[i]['Fraction of Lime/Dolomite']),
                     'dieselUse': float(Crop[i]['Annual Diesel Consumption (litres/year)']),
                     'petrolUse': float(Crop[i]['Annual Pertol Consumption (litres/year)']),
-                    'lpg': float(Crop[i]['Annual LPG Consumption (litres/year)'])
+                    'lpg': float(Crop[i]['Annual LPG Consumption (litres/year)']),
+                    'id': Crop[i]['Crop type']
                 }
             )
             if np.isnan(Crop[i]['Vegetation area (ha)']):
@@ -623,7 +624,7 @@ else:
         }
 
         # url and key
-        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/1.2.0/grains'
+        API_url = 'https://emissionscalculator-mtls.production.aiaapi.com/calculator/2.0.0/grains'
         # Add in the key and perm file when AIA gets back to us
         key = os.path.join('credential', 'carbon-calculator-integration.key')
         pem = os.path.join('credential', 'aiaghg-terrawise.pem')
@@ -637,7 +638,11 @@ else:
         if response.status_code != 200:
             st.write(response.json())
 
-        with open("response.json", "wb") as f:
-            f.write(json.dumps(response.json(), indent=4).encode('utf-8'))
-            st.download_button("Download the result from AIA's API", f, file_name="_".join(selected_crop)+".json")
-            f.close()
+        # Prepare JSON for download
+        json_str = json.dumps(response.json(), indent=4)
+        st.download_button(
+            "Download the result from AIA's API",
+            data=json_str.encode('utf-8'),
+            file_name="_".join(desired_crop)+".json",
+            mime="application/json"
+        )
