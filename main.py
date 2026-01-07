@@ -690,8 +690,8 @@ else:
                     {
                         "vegetation": {
                             "region": "South Coastal",
-                            "treeSpecies": "No tree data available",
-                            "soil": "No Soil / Tree data available",
+                            "treeSpecies": "Mixed species (Environmental Plantings)",
+                            "soil": "Loams & Clays",
                             "area": 0,
                             "age": 0,
                         },
@@ -725,7 +725,7 @@ else:
         }
 
         # url and key
-        API_url = "https://emissionscalculator-mtls.production.aiaapi.com/calculator/2.0.0/grains"
+        API_url = "https://emissionscalculator-mtls.production.aiaapi.com/calculator/3.0.0/grains"
         # Add in the key and perm file when AIA gets back to us
         key = os.path.join("credential", "carbon-calculator-integration.key")
         pem = os.path.join("credential", "aiaghg-terrawise.pem")
@@ -738,12 +738,12 @@ else:
         st.write(response.status_code)
         if response.status_code != 200:
             st.write(response.json())
-
-        # Prepare JSON for download
-        json_str = json.dumps(response.json(), indent=4)
-        st.download_button(
-            "Download the result from AIA's API",
-            data=json_str.encode("utf-8"),
-            file_name=filename + "_" + "_".join(desired_crop) + ".json",
-            mime="application/json",
-        )
+        else:
+            # Prepare JSON for download
+            json_str = json.dumps(response.json(), indent=4)
+            st.download_button(
+                "Download the result from AIA's API",
+                data=json_str.encode("utf-8"),
+                file_name=filename + "_" + "_".join(desired_crop) + ".json",
+                mime="application/json",
+            )
