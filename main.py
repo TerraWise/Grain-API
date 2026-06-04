@@ -1,26 +1,33 @@
 # Import the required modules
-import openpyxl.cell
 import openpyxl
-import openpyxl.utils.dataframe
 import openpyxl.cell.cell as Cell
 import pandas as pd
-import requests as rq
 import streamlit as st
-import geopandas as gpd
 import shutil, os, tempfile
 from datetime import datetime as dt
-import numpy as np
-import datetime as dt
 from functions.Extract_params import *
 from functions.From_q import *
 from functions.weather_stations import *
+from functions.aia_api import find_selected_indices, build_aia_payload, call_aia_api
 import json
 
 
-def remove_insert(list: list, index: int, value: str):
-    del list[index]
-    list.insert(index, value)
-    return list
+_CROP_NAME = object()  # sentinel: write crop.capitalize() into this column
+
+
+def write_products_to_ws(ws, crops, products_by_crop, col_map):
+    row = 2
+    for i, crop in enumerate(crops):
+        if i > 0:
+            row += len(products_by_crop[crops[i - 1]])
+        for space, product in enumerate(products_by_crop[crop]):
+            for col, key in col_map.items():
+                ws.cell(row + space, col).value = (
+                    crop.capitalize() if key is _CROP_NAME else product[key]
+                )
+
+
+STATE_REMAP = {"nw_western_australia": "wa_nw", "sw_western_australia": "wa_sw"}
 
 
 # Get current path
@@ -40,7 +47,7 @@ if tool == "Extraction":
     )
 
     try:
-        crops, crop_specific_input, questionnaire_df, veg_df = FromTheTop(zipfiles)
+        crops, crop_specific_input, questionnaire_df, veg_df = from_the_top(zipfiles)
 
         cols_to_drop = [
             "ObjectID",
@@ -101,10 +108,8 @@ if tool == "Extraction":
             )
             st.dataframe(crop_specific_input[crop][input], hide_index=True)
         except NameError:
-            st.markdown(
-                ":woman-gesturing-no:!:man-gesturing-no:!\
-                        Quickly upload files to discover the secret lies here"
-            )
+            st.markdown(":woman-gesturing-no:!:man-gesturing-no:!\
+                        Quickly upload files to discover the secret lies here")
 
     with tab3:
         # Upload shapefile for SILO's API (weather data)
@@ -266,10 +271,10 @@ if tool == "Extraction":
         with tempfile.TemporaryDirectory() as tmp_out:
 
             # Write out the general info
-            FollowUp(questionnaire_df, tmp_out)
+            follow_up(questionnaire_df, tmp_out)
 
             # Crop specific info
-            LandManagement(questionnaire_df, crops, tmp_out)
+            land_management(questionnaire_df, crops, tmp_out)
 
             xlsx_path = glob.glob(pathname=os.path.join("input", "*.xlsx"))
 
@@ -277,7 +282,7 @@ if tool == "Extraction":
             wb = openpyxl.load_workbook(xlsx_path[0])
 
             # Fill in general info
-            ws = wb["General information"]
+            ws = wb["👤 General information"]
 
             # General information
             # Client name
@@ -295,12 +300,9 @@ if tool == "Extraction":
             # Property address
             ws.cell(8, 2).value = questionnaire_df["property_address"].iloc[0]
             # State
-            if questionnaire_df["state"].iloc[0] == "nw_western_australia":
-                ws.cell(9, 2).value = "wa_nw"
-            elif questionnaire_df["state"].iloc[0] == "sw_western_australia":
-                ws.cell(9, 2).value = "wa_sw"
-            else:
-                ws.cell(9, 2).value = questionnaire_df["state"].iloc[0]
+            ws.cell(9, 2).value = STATE_REMAP.get(
+                questionnaire_df["state"].iloc[0], questionnaire_df["state"].iloc[0]
+            )
             # Farm map or paddock boundaries
             ws.cell(10, 2).value = questionnaire_df["upload_email_draw"].iloc[0]
 
@@ -424,104 +426,62 @@ if tool == "Extraction":
                             croptype.offset(column=6).value = 0
 
             # Fertiliser
-            ws = wb["Fertiliser Applied - Input"]
+            ws = wb["🛢️ Fertiliser Applied - Input"]
             # List of fertiliser applied breaks down by
             # crop type
-            ferts = ListFertChem(crop_specific_input, crops, questionnaire_df, "fert")
-            # Loop to write into the worksheet
-            for i, crop in enumerate(crops):
-                crop_ferts = ferts[crop]
-                space = 0  # Spacing between products of the same crop
-                if i == 0:  # Set the starting row
-                    row = 2
-                if i > 0:  # Starting row after first crop
-                    previous_crop = crops[i - 1]
-                    row += len(ferts[previous_crop])
-                for fert in crop_ferts:
-                    # Product name
-                    ws.cell(row + space, 1).value = fert["name"]
-                    # Forms
-                    ws.cell(row + space, 2).value = fert["form"]
-                    # Crop
-                    ws.cell(row + space, 4).value = crop.capitalize()
-                    # Rate
-                    ws.cell(row + space, 6).value = fert["rate"]
-                    # Area
-                    ws.cell(row + space, 7).value = fert["area"]
-                    # Times
-                    ws.cell(row + space, 8).value = fert["times"]
-                    space += 1
+            ferts = list_fert_chem(crop_specific_input, crops, questionnaire_df, "fert")
+            write_products_to_ws(
+                ws,
+                crops,
+                ferts,
+                {1: "name", 2: "form", 4: _CROP_NAME, 6: "rate", 7: "area", 8: "times"},
+            )
 
             # Chemical
-            ws = wb["Chemical Applied - Input"]
+            ws = wb["🧪 Chemical Applied - Input"]
             # List of chemical applied break downs
             # by crop
             chemicals = ["fungicide", "herbicide", "insecticide", "chem_other"]
             chems = {}
-            for chem in chemicals:
-                st.write(chem)
-                chems[chem] = ListFertChem(
-                    crop_specific_input, crops, questionnaire_df, chem
+            for chem_type in chemicals:
+                st.write(chem_type)
+                chems[chem_type] = list_fert_chem(
+                    crop_specific_input, crops, questionnaire_df, chem_type
                 )
-            # Refer to fertiliser section
-            for chem in chemicals:
-                chemical = chems[chem]
-                for i, crop in enumerate(crops):
-                    crop_chems = chemical[crop]
-                    space = 0
-                    if i == 0:
-                        row = 2
-                    if i > 0:
-                        previous_crop = crops[i - 1]
-                        row += len(chemical[previous_crop])
-                    for chem in crop_chems:
-                        # Product name
-                        ws.cell(row + space, 1).value = chem["name"]
-                        # Forms
-                        ws.cell(row + space, 2).value = chem["form"]
-                        # Crop
-                        ws.cell(row + space, 16).value = crop.capitalize()
-                        # Rate
-                        ws.cell(row + space, 17).value = chem["rate"]
-                        # Area
-                        ws.cell(row + space, 18).value = chem["area"]
-                        # Times
-                        ws.cell(row + space, 19).value = chem["times"]
-                        space += 1
+            for chem_type in chemicals:
+                write_products_to_ws(
+                    ws,
+                    crops,
+                    chems[chem_type],
+                    {
+                        1: "name",
+                        2: "form",
+                        16: _CROP_NAME,
+                        17: "rate",
+                        18: "area",
+                        19: "times",
+                    },
+                )
 
             # Lime/gypsum
-            ws = wb["Lime Product - Input"]
+            ws = wb["🍋‍🟩Lime Product - Input"]
             # List of products (lime/dolomite and gypsum) applied
             # breaking down by crop type
-            products_applied = ToSoilAme(questionnaire_df, crops)
-            # Loop to write into the worksheet
-            for i, crop in enumerate(crops):
-                crop_products = products_applied[crop]
-                space = 0
-                if i == 0:
-                    row = 2
-                if i > 0:
-                    previous_crop = crops[i - 1]
-                    row += len(products_applied[previous_crop])
-                for product in crop_products:
-                    # Soil amelioration
-                    ws.cell(row + space, 1).value = product["name"]
-                    # Source
-                    ws.cell(row + space, 2).value = product["source"]
-                    # Crop
-                    ws.cell(row + space, 4).value = crop.capitalize()
-                    # Rate
-                    ws.cell(row + space, 5).value = product["rate"]
-                    # Area
-                    ws.cell(row + space, 6).value = product["area"]
+            products_applied = to_soil_ame(questionnaire_df, crops)
+            write_products_to_ws(
+                ws,
+                crops,
+                products_applied,
+                {1: "name", 2: "source", 4: _CROP_NAME, 5: "rate", 6: "area"},
+            )
 
             #  Fuel usage - PW pathway will be in the future
-            ws = wb["Fuel Usage - Input"]
+            # ws = wb["⛽Fuel Usage - Input"]
 
             # Vegetation
-            ws = wb["Vegetation - Input"]
+            ws = wb["🌿 Vegetation - Input"]
             # A dictionary of vegetation planted
-            vegetation = ToVeg(veg_df, planting_shapes)
+            vegetation = to_veg(veg_df, planting_shapes)
             # Write into the worksheet
             try:
                 for i in range(len(vegetation)):
@@ -568,7 +528,7 @@ if tool == "Extraction":
             os.path.join(cwd, "Question_Extract.zip"),
             os.path.join(cwd, "Weather_data.zip"),
         ]
-        RemoveFiles(files)
+        remove_files(files)
 else:
     st.header("Send to AIA")
 
@@ -579,13 +539,15 @@ else:
 
     ex_file = st.file_uploader("Upload your inventory sheet:", "xlsx")
 
+    Crop = []
+    desired_crop = []
     try:
         # Create a df using function
-        df = ToDataFrame(ex_file)
+        df = to_data_frame(ex_file)
         df["Area sown (ha)"] = df["Area sown (ha)"].apply(lambda x: float(x))
 
         # Separate it by crop type
-        Crop = ByCropType(df)
+        Crop = by_crop_type(df)
         # Display the dataframe for checking
         if st.toggle("Do you want to check your input data frame?"):
             st.dataframe(Crop, hide_index=True)
@@ -603,143 +565,15 @@ else:
 
     if st.button("Run", key="AIA_API"):
 
-        # General info
-        loc, rain_over = GenInfo(ex_file)
+        loc, rain_over = gen_info(ex_file)
+        selected_indices = find_selected_indices(desired_crop, Crop)
+        payload = build_aia_payload(Crop, selected_indices, rain_over)
+        response = call_aia_api(payload)
 
-        # params json
-        datas = {
-            "state": "wa_sw",
-            "crops": [],
-            "electricityRenewable": float(
-                Crop[0]["% of electricity from renewable source"]
-            ),
-            "electricityUse": float(
-                Crop[0]["Annual Electricity Use (state Grid) (KWh)"]
-            ),
-            "vegetation": [],
-        }
-
-        # To get the selected crop index
-        i = 0
-        j = 0
-        selected_crop = []
-        while i < len(desired_crop) and j < len(Crop):
-            if desired_crop[i] == Crop[j]["Crop type"]:
-                selected_crop.append(j)
-                if desired_crop[i] == "Canola":
-                    Crop[j].replace("Canola", "Oilseeds", inplace=True)
-                j = 0
-                i += 1
-            else:
-                j += 1
-
-        # Default the production system
-        # to 'Non-irrigated crop'
-        prod_sys = "Non-irrigated crop"
-
-        # params for the API
-        for i in selected_crop:  # For one or multiple crops
-            datas["crops"].append(
-                {
-                    "type": Crop[i]["Crop type"],
-                    "state": "wa_sw",
-                    "productionSystem": prod_sys,
-                    "averageGrainYield": float(Crop[i]["Average grain yield (t/ha)"]),
-                    "areaSown": float(Crop[i]["Area sown (ha)"]),
-                    "nonUreaNitrogen": float(
-                        Crop[i]["Non-Urea Nitrogen Applied (kg N/ha)"]
-                    ),
-                    "ureaApplication": float(Crop[i]["Urea Applied (kg Urea/ha)"]),
-                    "ureaAmmoniumNitrate": float(
-                        Crop[i]["Urea-Ammonium Nitrate (UAN) (kg product/ha)"]
-                    ),
-                    "phosphorusApplication": float(
-                        Crop[i]["Phosphorus Applied (kg P/ha)"]
-                    ),
-                    "potassiumApplication": float(
-                        Crop[i]["Potassium Applied (kg K/ha)"]
-                    ),
-                    "sulfurApplication": float(Crop[i]["Sulfur Applied (kg S/ha)"]),
-                    "rainfallAbove600": bool(rain_over),
-                    "fractionOfAnnualCropBurnt": float(
-                        Crop[i][
-                            "Fraction of the annual production of crop that is burnt (%)"
-                        ]
-                    ),
-                    "herbicideUse": float(
-                        Crop[i]["Other chemicals applied (kg a.i. per crop)"]
-                    ),
-                    "glyphosateOtherHerbicideUse": float(
-                        Crop[i]["Glyphosate (or equivalent) applied (kg a.i. per crop)"]
-                    ),
-                    "electricityAllocation": float(Crop[i]["electricityAllocation"]),
-                    "limestone": float(Crop[i]["Mass of Lime Applied (total tonnes)"]),
-                    "limestoneFraction": float(Crop[i]["Fraction of Lime/Dolomite"]),
-                    "dieselUse": float(
-                        Crop[i]["Annual Diesel Consumption (litres/year)"]
-                    ),
-                    "petrolUse": float(
-                        Crop[i]["Annual Pertol Consumption (litres/year)"]
-                    ),
-                    "lpg": float(Crop[i]["Annual LPG Consumption (litres/year)"]),
-                    "id": Crop[i]["Crop type"],
-                }
-            )
-            if np.isnan(Crop[i]["Vegetation area (ha)"]):
-                datas["vegetation"].append(
-                    {
-                        "vegetation": {
-                            "region": "South Coastal",
-                            "treeSpecies": "Mixed species (Environmental Plantings)",
-                            "soil": "Loams & Clays",
-                            "area": 0,
-                            "age": 0,
-                        },
-                        "allocationToCrops": [0],
-                    }
-                )
-            else:
-                datas["vegetation"].append(
-                    {
-                        "vegetation": {
-                            "region": Crop[i]["Region"],
-                            "treeSpecies": Crop[i]["Vegetation species"],
-                            "soil": Crop[i]["Vegetation Soil type"],
-                            "area": float(Crop[i]["Vegetation area (ha)"]),
-                            "age": float(Crop[i]["Average Vegetation age (yrs)"]),
-                        },
-                        "allocationToCrops": [0] * (len(selected_crop)),
-                    }
-                )
-                datas["vegetation"][i]["allocationToCrops"] = remove_insert(
-                    datas["vegetation"][i]["allocationToCrops"],
-                    i,
-                    float(Crop[i]["Allocation"]),
-                )
-
-        # Set the header
-        Headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": "terrawise",
-        }
-
-        # url and key
-        API_url = "https://emissionscalculator-mtls.production.aiaapi.com/calculator/3.0.0/grains"
-        # Add in the key and perm file when AIA gets back to us
-        key = os.path.join("credential", "carbon-calculator-integration.key")
-        pem = os.path.join("credential", "aiaghg-terrawise.pem")
-
-        # POST request for the API Grains only
-        response = rq.post(url=API_url, headers=Headers, json=datas, cert=(pem, key))
-
-        # Status code to see if it's a
-        # successful request
         st.write(response.status_code)
         if response.status_code != 200:
             st.write(response.json())
         else:
-            # Prepare JSON for download
             json_str = json.dumps(response.json(), indent=4)
             st.download_button(
                 "Download the result from AIA's API",
