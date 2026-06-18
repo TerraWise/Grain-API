@@ -11,7 +11,6 @@ from functions.weather_stations import *
 from functions.aia_api import find_selected_indices, build_aia_payload, call_aia_api
 import json
 
-
 _CROP_NAME = object()  # sentinel: write crop.capitalize() into this column
 
 
@@ -153,7 +152,9 @@ if tool == "Extraction":
             # fraction of data from BOM
             st.write(nearest_station)
 
-            endYear = int(st.text_input("Input the end year (YYYY):", production_year))
+            endYear = int(
+                st.text_input("Input the end year (YYYY):", dt.now().year - 1)
+            )
 
             # Get a list of weather data from all four weather station
             weather_dfs = to_list_dfs(endYear, nearest_station)
