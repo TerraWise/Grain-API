@@ -97,8 +97,10 @@ def follow_up(df: pd.DataFrame, dir: str):
         split_on="\n",
     )
     info["Farm management software"] = _safe_get(
-        df, "Please select the applications you use below",
-        "Didn't select software", split_on="\n",
+        df,
+        "Please select the applications you use below",
+        "Didn't select software",
+        split_on="\n",
     )
     info["Access to software & \n record of variable rate"] = _safe_get(
         df,
@@ -106,7 +108,8 @@ def follow_up(df: pd.DataFrame, dir: str):
         "Either no or hasn't been answered. Please follow up",
     )
     info["Variable rate"] = _safe_get(
-        df, "Do you use variable rate technology (VRT) across your property ?",
+        df,
+        "Do you use variable rate technology (VRT) across your property ?",
         "Don't know. Need to ask again.",
     )
     if (
