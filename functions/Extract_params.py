@@ -1,27 +1,5 @@
 # Import the required function
-import pandas as pd
 import openpyxl
-
-
-# Funtion to create a df from excel sheet
-def to_data_frame(excel_wb: str):
-    wb = openpyxl.load_workbook(excel_wb, data_only=True)
-    ws = wb["Farm Data - Grains"]
-    headers = [ws.cell(row, 1).value for row in range(1, ws.max_row + 1)]
-    rows = [
-        [ws.cell(row, col).value for row in range(1, ws.max_row + 1)]
-        for col in range(2, ws.max_column + 1)
-    ]
-    df = pd.DataFrame(rows, columns=headers)
-    return df.iloc[0:12]
-
-
-# Separate the big df into crop type
-def by_crop_type(df: pd.DataFrame):
-    Crop = []
-    for i in df["Crop type"].index:
-        Crop.append(df.iloc[i])
-    return Crop
 
 
 # Get the general information
