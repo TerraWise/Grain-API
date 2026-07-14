@@ -2,110 +2,42 @@ import os
 import pandas as pd
 import requests
 
+PROD_SYS = "Non-irrigated crop"
+STATE_MAP = {
+    "NSW": "nsw",
+    "VIC": "vic",
+    "QLD": "qld",
+    "SA": "sa",
+    "WA NW": "wa_nw",
+    "WA SW": "wa_sw",
+    "TAS": "tas",
+    "NT": "nt",
+    "ACT": "act",
+}
 
-def remove_insert(lst: list, index: int, value) -> list:
-    del lst[index]
-    lst.insert(index, value)
-    return lst
-
-
-def find_selected_indices(desired_crop: list, Crop: list) -> list:
-    selected = []
-    i, j = 0, 0
-    while i < len(desired_crop) and j < len(Crop):
-        if desired_crop[i] == Crop[j]["Crop type"]:
-            selected.append(j)
-            if desired_crop[i] == "Canola":
-                Crop[j].replace("Canola", "Oilseeds", inplace=True)
-            j = 0
-            i += 1
-        else:
-            j += 1
-    return selected
-
-
-def build_aia_payload(Crop: list, selected_indices: list, rain_over: bool) -> dict:
-    prod_sys = "Non-irrigated crop"
-    datas = {
-        "state": "wa_sw",
-        "crops": [],
-        "electricityRenewable": float(
-            Crop[0]["% of electricity from renewable source"]
-        ),
-        "electricityUse": float(Crop[0]["Annual Electricity Use (state Grid) (KWh)"]),
-        "vegetation": [],
-    }
-    for i in selected_indices:
-        datas["crops"].append(
-            {
-                "type": Crop[i]["Crop type"],
-                "state": "wa_sw",
-                "productionSystem": prod_sys,
-                "averageGrainYield": float(Crop[i]["Average grain yield (t/ha)"]),
-                "areaSown": float(Crop[i]["Area sown (ha)"]),
-                "nonUreaNitrogen": float(
-                    Crop[i]["Non-Urea Nitrogen Applied (kg N/ha)"]
-                ),
-                "ureaApplication": float(Crop[i]["Urea Applied (kg Urea/ha)"]),
-                "ureaAmmoniumNitrate": float(
-                    Crop[i]["Urea-Ammonium Nitrate (UAN) (kg product/ha)"]
-                ),
-                "phosphorusApplication": float(Crop[i]["Phosphorus Applied (kg P/ha)"]),
-                "potassiumApplication": float(Crop[i]["Potassium Applied (kg K/ha)"]),
-                "sulfurApplication": float(Crop[i]["Sulfur Applied (kg S/ha)"]),
-                "rainfallAbove600": bool(rain_over),
-                "fractionOfAnnualCropBurnt": float(
-                    Crop[i][
-                        "Fraction of the annual production of crop that is burnt (%)"
-                    ]
-                ),
-                "herbicideUse": float(
-                    Crop[i]["Other chemicals applied (kg a.i. per crop)"]
-                ),
-                "glyphosateOtherHerbicideUse": float(
-                    Crop[i]["Glyphosate (or equivalent) applied (kg a.i. per crop)"]
-                ),
-                "electricityAllocation": float(Crop[i]["electricityAllocation"]),
-                "limestone": float(Crop[i]["Mass of Lime Applied (total tonnes)"]),
-                "limestoneFraction": float(Crop[i]["Fraction of Lime/Dolomite"]),
-                "dieselUse": float(Crop[i]["Annual Diesel Consumption (litres/year)"]),
-                "petrolUse": float(Crop[i]["Annual Pertol Consumption (litres/year)"]),
-                "lpg": float(Crop[i]["Annual LPG Consumption (litres/year)"]),
-                "id": Crop[i]["Crop type"],
-            }
-        )
-        if pd.isna(Crop[i]["Vegetation area (ha)"]):
-            datas["vegetation"].append(
-                {
-                    "vegetation": {
-                        "region": "South Coastal",
-                        "treeSpecies": "Mixed species (Environmental Plantings)",
-                        "soil": "Loams & Clays",
-                        "area": 0,
-                        "age": 0,
-                    },
-                    "allocationToCrops": [0],
-                }
-            )
-        else:
-            datas["vegetation"].append(
-                {
-                    "vegetation": {
-                        "region": Crop[i]["Region"],
-                        "treeSpecies": Crop[i]["Vegetation species"],
-                        "soil": Crop[i]["Vegetation Soil type"],
-                        "area": float(Crop[i]["Vegetation area (ha)"]),
-                        "age": float(Crop[i]["Average Vegetation age (yrs)"]),
-                    },
-                    "allocationToCrops": [0] * len(selected_indices),
-                }
-            )
-            datas["vegetation"][i]["allocationToCrops"] = remove_insert(
-                datas["vegetation"][i]["allocationToCrops"],
-                i,
-                float(Crop[i]["Allocation"]),
-            )
-    return datas
+CROP_TYPES = [
+    "Wheat",
+    "Barley",
+    "Maize",
+    "Oats",
+    "Rice",
+    "Sorghum",
+    "Triticale",
+    "Other Cereals",
+    "Pulses",
+    "Tuber and Roots",
+    "Peanuts",
+    "Sugar Cane",
+    "Cotton",
+    "Hops",
+    "Oilseeds",
+    "Forage Crops",
+    "Lucerne",
+    "Other legume",
+    "Annual grass",
+    "Grass clover mixture",
+    "Perennial pasture",
+]
 
 
 def call_aia_api(payload: dict) -> requests.Response:
@@ -120,3 +52,197 @@ def call_aia_api(payload: dict) -> requests.Response:
     key = os.path.join("credential", "carbon-calculator-integration.key")
     pem = os.path.join("credential", "aiaghg-terrawise.pem")
     return requests.post(url=url, headers=headers, json=payload, cert=(pem, key))
+
+
+def build_aia_payload(
+    crop_df: pd.DataFrame,
+    loc: str,
+    rain_over: bool,
+) -> dict:
+
+    payload = {
+        "state": "wa_sw",
+        "crops": [],
+        "electricityRenewable": crop_df["% of electricity from renewable source"].iloc[
+            0
+        ],
+        "electricityUse": crop_df["Annual Electricity Use (state Grid) (KWh)"].iloc[0],
+        "vegetation": [],
+    }
+
+    for _, r in crop_df.iterrows():
+        payload["crops"].append(extract_crop_production(r, loc, rain_over))
+
+    veg = crop_df.iloc[:, 20:]
+
+    if pd.isna(veg).all(axis=None):
+        payload["vegetation"].append(
+            {
+                "vegetation": {
+                    "region": "South Coastal",
+                    "treeSpecies": "Mixed species (Environmental Plantings)",
+                    "soil": "Loams & Clays",
+                    "area": 0,
+                    "age": 0,
+                },
+                "allocationToCrops": [0],
+            }
+        )
+        return payload
+
+    for i, r in veg.iterrows():
+        if pd.isna(r).any():
+            raise Exception(f"the vegetation data is in valid at col: {r + 1}")
+        regions = r["Region"].split(", ")
+        species = r["Vegetation species"].split(", ")
+        soil_types = r["Vegetation Soil type"].split(", ")
+        areas = r["Vegetation area (ha)"].split(", ")
+        ages = r["Average Vegetation age (yrs)"].split(", ")
+        allocs = r["Allocation"].split(", ")
+
+        i = 0
+        while i < len(regions):
+            payload["vegetation"].append(
+                {
+                    "vegetation": {
+                        "region": regions[i],
+                        "treeSpecies": species[i],
+                        "soil": soil_types[i],
+                        "area": areas[i],
+                        "age": ages[i],
+                    },
+                    "allocationToCrops": [allocs[i]],
+                }
+            )
+            i += 1
+
+    return payload
+
+
+def extract_crop_production(crop_record: pd.Series, loc: str, rain_over: bool) -> dict:
+    crop_type, id = split_crop_name(str(crop_record.name))
+
+    crop_json = {
+        "id": id,
+        "type": crop_type.capitalize(),
+        "state": STATE_MAP[loc] if loc is not None else "wa_sw",
+        "productionSystem": PROD_SYS,
+        "rainfallAbove600": rain_over,
+    }
+
+    # yield and area sown
+    extract_yield(
+        crop_json,
+        crop_record["Area sown (ha)"],
+        crop_record["Average grain yield (t/ha)"],
+    )
+    # fert application
+    kwargs = {
+        "non_urea_N": crop_record["Non-Urea Nitrogen Applied (kg N/ha)"],
+        "urea": crop_record["Urea Applied (kg Urea/ha)"],
+        "uan": crop_record["Urea-Ammonium Nitrate (UAN) (kg product/ha)"],
+        "p": crop_record["Phosphorus Applied (kg P/ha)"],
+        "k": crop_record["Potassium Applied (kg K/ha)"],
+        "s": crop_record["Sulfur Applied (kg S/ha)"],
+    }
+    extract_fertiliser(crop_json, **kwargs)
+    # crop burnt
+    extract_pct_crop_burnt(
+        crop_json,
+        crop_record["Fraction of the annual production of crop that is burnt (%)"],
+    )
+    # chemical application
+    extract_chemical(
+        crop_json,
+        crop_record["Other chemicals applied (kg a.i. per crop)"],
+        crop_record["Glyphosate (or equivalent) applied (kg a.i. per crop)"],
+    )
+    # electricity allocation
+    extract_elec_alloc(crop_json, crop_record["electricityAllocation"])
+    # limestone application
+    extract_limestone(
+        crop_json,
+        crop_record["Mass of Lime Applied (total tonnes)"],
+        crop_record["Fraction of Lime/Dolomite"],
+    )
+    # fuel usage
+    extract_fuel(
+        crop_json,
+        crop_record["Annual Diesel Consumption (litres/year)"],
+        crop_record["Annual Pertol Consumption (litres/year)"],
+        crop_record["Annual LPG Consumption (litres/year)"],
+    )
+
+    return crop_json
+
+
+def split_crop_name(name: str) -> tuple[str, str]:
+    for crop_type in sorted(CROP_TYPES, key=len, reverse=True):
+        if name == crop_type:
+            return crop_type, crop_type
+        if name.startswith(crop_type + " "):
+            return crop_type, name[len(crop_type) :].strip()
+    raise ValueError(f"Unrecognized crop type in {name!r}")
+
+
+def extract_yield(
+    crop_json: dict[str, str | float], area_sown: float, avg_yield: float
+):
+    crop_json.update(
+        {
+            "areaSown": area_sown,
+            "averageGrainYield": avg_yield,
+        }
+    )
+
+
+def extract_fertiliser(
+    crop_json: dict[str, str | float],
+    non_urea_N: float,
+    urea: float,
+    uan: float,
+    p: float,
+    k: float,
+    s: float,
+):
+    crop_json.update(
+        {
+            "nonUreaNitrogen": non_urea_N,
+            "ureaApplication": urea,
+            "ureaAmmoniumNitrate": uan,
+            "phosphorusApplication": p,
+            "potassiumApplication": k,
+            "sulfurApplication": s,
+        }
+    )
+
+
+def extract_pct_crop_burnt(crop_json: dict[str, str | float], burnt_pct: float):
+    crop_json.update({"fractionOfAnnualCropBurnt": burnt_pct})
+
+
+def extract_chemical(
+    crop_json: dict[str, str | float], herbi: float, glyphosate: float
+):
+    crop_json.update(
+        {
+            "herbicideUse": herbi,
+            "glyphosateOtherHerbicideUse": glyphosate,
+        }
+    )
+
+
+def extract_elec_alloc(crop_json: dict[str, str | float], alloc_pct: float):
+    crop_json.update({"electricityAllocation": alloc_pct})
+
+
+def extract_limestone(
+    crop_json: dict[str, str | float], limestone: float, limestone_frac: float
+):
+    crop_json.update({"limestone": limestone, "limestoneFraction": limestone_frac})
+
+
+def extract_fuel(
+    crop_json: dict[str, str | float], diesel: float, petrol: float, lpg: float = 0
+):
+    crop_json.update({"dieselUse": diesel, "petrolUse": petrol, "lpg": lpg})

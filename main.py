@@ -1,7 +1,8 @@
 import streamlit as st
+import pandas as pd
 import os
-from functions.Extract_params import to_data_frame, by_crop_type, gen_info
-from functions.aia_api import find_selected_indices, build_aia_payload, call_aia_api
+from functions.Extract_params import gen_info
+from functions.aia_api import build_aia_payload, call_aia_api
 import json
 
 _CROP_NAME = object()  # sentinel: write crop.capitalize() into this column
@@ -36,23 +37,24 @@ st.write(
 
 ex_file = st.file_uploader("Upload your inventory sheet:", "xlsx")
 
-Crop = []
 desired_crop = []
 try:
     # Create a df using function
-    df = to_data_frame(ex_file)
+    df = pd.read_excel(ex_file, sheet_name="Farm Data - Grains", index_col=0).T
+    st.write(df)
     df["Area sown (ha)"] = df["Area sown (ha)"].apply(lambda x: float(x))
 
     # Separate it by crop type
-    Crop = by_crop_type(df)
+    crop_types = df.index
+
     # Display the dataframe for checking
     if st.toggle("Do you want to check your input data frame?"):
-        st.dataframe(Crop, hide_index=True)
+        st.dataframe(crop_types, hide_index=True)
         st.write("If there are no data, please refer to the text above")
     # Choose the desired crop to send a request
-    desired_crop = st.multiselect(
+    selected_indices = st.multiselect(
         "Choose which crop to send your request:",
-        df["Crop type"].loc[df["Area sown (ha)"] > 0].to_list(),
+        df.loc[df["Area sown (ha)"] > 0].index,
     )
 except TypeError:
     st.write("Haven't uploaded an inventory sheet yet")
@@ -61,10 +63,10 @@ except TypeError:
 filename = st.text_input("Save the file as:", key="GAFF_file")
 
 if st.button("Run", key="AIA_API"):
+    df = df.loc[selected_indices]
 
     loc, rain_over = gen_info(ex_file)
-    selected_indices = find_selected_indices(desired_crop, Crop)
-    payload = build_aia_payload(Crop, selected_indices, rain_over)
+    payload = build_aia_payload(df, loc, rain_over)
     response = call_aia_api(payload)
 
     st.write(response.status_code)
