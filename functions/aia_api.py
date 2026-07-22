@@ -65,7 +65,8 @@ def build_aia_payload(
         "crops": [],
         "electricityRenewable": crop_df["% of electricity from renewable source"].iloc[
             0
-        ],
+        ]
+        / 100,
         "electricityUse": crop_df["Annual Electricity Use (state Grid) (KWh)"].iloc[0],
         "vegetation": [],
     }
@@ -73,7 +74,7 @@ def build_aia_payload(
     for _, r in crop_df.iterrows():
         payload["crops"].append(extract_crop_production(r, loc, rain_over))
 
-    veg = crop_df.iloc[:, 20:]
+    veg = crop_df.iloc[:, 19:]
 
     if pd.isna(veg).all(axis=None):
         payload["vegetation"].append(
@@ -90,31 +91,31 @@ def build_aia_payload(
         )
         return payload
 
-    for i, r in veg.iterrows():
-        if pd.isna(r).any():
-            raise Exception(f"the vegetation data is in valid at col: {r + 1}")
-        regions = r["Region"].split(", ")
-        species = r["Vegetation species"].split(", ")
-        soil_types = r["Vegetation Soil type"].split(", ")
-        areas = r["Vegetation area (ha)"].split(", ")
-        ages = r["Average Vegetation age (yrs)"].split(", ")
-        allocs = r["Allocation"].split(", ")
+    r = veg.iloc[0]
+    if pd.isna(r).any():
+        raise Exception(f"the vegetation data is invalid")
+    regions = r["Region"].split(", ")
+    species = r["Vegetation species"].split(", ")
+    soil_types = r["Vegetation Soil type"].split(", ")
+    areas = r["Vegetation area (ha)"].split(", ")
+    ages = r["Average Vegetation age (yrs)"].split(", ")
+    allocs = r["Allocation"].split(", ")
 
-        i = 0
-        while i < len(regions):
-            payload["vegetation"].append(
-                {
-                    "vegetation": {
-                        "region": regions[i],
-                        "treeSpecies": species[i],
-                        "soil": soil_types[i],
-                        "area": areas[i],
-                        "age": ages[i],
-                    },
-                    "allocationToCrops": [allocs[i]],
-                }
-            )
-            i += 1
+    i = 0
+    while i < len(regions):
+        payload["vegetation"].append(
+            {
+                "vegetation": {
+                    "region": regions[i],
+                    "treeSpecies": species[i],
+                    "soil": soil_types[i],
+                    "area": float(areas[i]),
+                    "age": int(ages[i]),
+                },
+                "allocationToCrops": list(map(lambda x: float(x), [allocs[i]])),
+            }
+        )
+        i += 1
 
     return payload
 
