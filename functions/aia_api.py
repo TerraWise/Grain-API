@@ -65,8 +65,7 @@ def build_aia_payload(
         "crops": [],
         "electricityRenewable": crop_df["% of electricity from renewable source"].iloc[
             0
-        ]
-        / 100,
+        ],
         "electricityUse": crop_df["Annual Electricity Use (state Grid) (KWh)"].iloc[0],
         "vegetation": [],
     }
