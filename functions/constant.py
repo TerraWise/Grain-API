@@ -1,0 +1,36 @@
+PROD_SYS = "Non-irrigated crop"
+STATE_MAP = {
+    "NSW": "nsw",
+    "VIC": "vic",
+    "QLD": "qld",
+    "SA": "sa",
+    "WA NW": "wa_nw",
+    "WA SW": "wa_sw",
+    "TAS": "tas",
+    "NT": "nt",
+    "ACT": "act",
+}
+
+CROP_TYPES = [
+    "Wheat",
+    "Barley",
+    "Maize",
+    "Oats",
+    "Rice",
+    "Sorghum",
+    "Triticale",
+    "Other Cereals",
+    "Pulses",
+    "Tuber and Roots",
+    "Peanuts",
+    "Sugar Cane",
+    "Cotton",
+    "Hops",
+    "Oilseeds",
+    "Forage Crops",
+    "Lucerne",
+    "Other legume",
+    "Annual grass",
+    "Grass clover mixture",
+    "Perennial pasture",
+]

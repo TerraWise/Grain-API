@@ -2,42 +2,7 @@ import os
 import pandas as pd
 import requests
 
-PROD_SYS = "Non-irrigated crop"
-STATE_MAP = {
-    "NSW": "nsw",
-    "VIC": "vic",
-    "QLD": "qld",
-    "SA": "sa",
-    "WA NW": "wa_nw",
-    "WA SW": "wa_sw",
-    "TAS": "tas",
-    "NT": "nt",
-    "ACT": "act",
-}
-
-CROP_TYPES = [
-    "Wheat",
-    "Barley",
-    "Maize",
-    "Oats",
-    "Rice",
-    "Sorghum",
-    "Triticale",
-    "Other Cereals",
-    "Pulses",
-    "Tuber and Roots",
-    "Peanuts",
-    "Sugar Cane",
-    "Cotton",
-    "Hops",
-    "Oilseeds",
-    "Forage Crops",
-    "Lucerne",
-    "Other legume",
-    "Annual grass",
-    "Grass clover mixture",
-    "Perennial pasture",
-]
+from constant import PROD_SYS, STATE_MAP, CROP_TYPES
 
 
 def call_aia_api(payload: dict) -> requests.Response:
