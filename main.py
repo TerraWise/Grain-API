@@ -35,7 +35,7 @@ st.write(
     "Before uploading the excel file, please open and save it so the data can be\nupdated accordingly"
 )
 
-ex_file = st.file_uploader("Upload your inventory sheet:", "xlsx")
+ex_file = st.file_uploader("Upload your inventory sheet:", "xlsm")
 
 desired_crop = []
 try:
