@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import requests
 
-from constant import PROD_SYS, STATE_MAP, CROP_TYPES
+from functions.constant import PROD_SYS, STATE_MAP, CROP_TYPES
 
 
 def call_aia_api(payload: dict) -> requests.Response:
@@ -63,7 +63,7 @@ def build_aia_payload(
     soil_types = r["Vegetation Soil type"].split(", ")
     areas = r["Vegetation area (ha)"].split(", ")
     ages = r["Average Vegetation age (yrs)"].split(", ")
-    allocs = r["Allocation"].split(", ")
+    allocs = [float(1)] * len(regions)
 
     i = 0
     while i < len(regions):
@@ -76,7 +76,7 @@ def build_aia_payload(
                     "area": float(areas[i]),
                     "age": int(ages[i]),
                 },
-                "allocationToCrops": list(map(lambda x: float(x), [allocs[i]])),
+                "allocationToCrops": [allocs[i]],
             }
         )
         i += 1
@@ -134,7 +134,7 @@ def extract_crop_production(crop_record: pd.Series, loc: str, rain_over: bool) -
     extract_fuel(
         crop_json,
         crop_record["Annual Diesel Consumption (litres/year)"],
-        crop_record["Annual Pertol Consumption (litres/year)"],
+        crop_record["Annual Petrol Consumption (litres/year)"],
         crop_record["Annual LPG Consumption (litres/year)"],
     )
 
