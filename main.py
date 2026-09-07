@@ -37,7 +37,6 @@ st.write(
 
 ex_file = st.file_uploader("Upload your inventory sheet:", "xlsm")
 
-desired_crop = []
 try:
     # Create a df using function
     df = pd.read_excel(ex_file, sheet_name="Farm Data - Grains", index_col=0).T
@@ -77,6 +76,6 @@ if st.button("Run", key="AIA_API"):
         st.download_button(
             "Download the result from AIA's API",
             data=json_str.encode("utf-8"),
-            file_name=filename + "_" + "_".join(desired_crop) + ".json",
+            file_name=filename + ".json",
             mime="application/json",
         )
