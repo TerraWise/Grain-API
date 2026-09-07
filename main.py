@@ -56,7 +56,7 @@ try:
         "Choose which crop to send your request:",
         df.loc[df["Area sown (ha)"] > 0].index,
     )
-except TypeError:
+except ValueError:
     st.write("Haven't uploaded an inventory sheet yet")
 
 # Name the file by the first property name
