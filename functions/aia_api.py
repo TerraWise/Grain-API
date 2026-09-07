@@ -55,7 +55,7 @@ def build_aia_payload(
         )
         return payload
 
-    r = veg.iloc[0]
+    r = veg.loc[veg.first_valid_index()]
     if pd.isna(r).any():
         raise Exception(f"the vegetation data is invalid")
     regions = r["Region"].split(", ")
@@ -89,7 +89,7 @@ def extract_crop_production(crop_record: pd.Series, loc: str, rain_over: bool) -
 
     crop_json = {
         "id": id,
-        "type": crop_type.capitalize(),
+        "type": crop_type,
         "state": STATE_MAP[loc] if loc is not None else "wa_sw",
         "productionSystem": PROD_SYS,
         "rainfallAbove600": rain_over,
